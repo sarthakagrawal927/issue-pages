@@ -93,10 +93,10 @@ GitHub loader elements are not published.
 
 ## Cloudflare setup
 
-The owner-only pilot runs at
-`https://issue-pages-production.sarthakagrawal927.workers.dev`. Its production
-D1 binding and public origin are checked in; the remaining secret setup stays
-outside source control.
+The owner-only pilot runs at `https://issues.sarthakagrawal.dev`. The
+`workers.dev` hostname remains a provider fallback. The production custom
+domain, D1 binding, and public origin are checked in; secret setup stays outside
+source control.
 
 For a new environment or recovery deployment:
 

@@ -42,12 +42,19 @@
   "env": {
     "production": {
       "name": "issue-pages-production",
+      "workers_dev": true,
+      "routes": [
+        {
+          "pattern": "issues.sarthakagrawal.dev",
+          "custom_domain": true
+        }
+      ],
       "vars": {
         "GITHUB_OWNER": "sarthakagrawal927",
         "GITHUB_REPO": "issue-pages",
         "GITHUB_REPOSITORY_ID": "1345783913",
         "MODERATION_MODE": "owner-only",
-        "PUBLIC_ORIGIN": "https://issue-pages-production.sarthakagrawal927.workers.dev"
+        "PUBLIC_ORIGIN": "https://issues.sarthakagrawal.dev"
       },
       "d1_databases": [
         {

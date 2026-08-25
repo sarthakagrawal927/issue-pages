@@ -40,6 +40,7 @@ domains, and multiple publishing repositories.
 - 2026-08-25 — production D1 migrated and owner-only Worker deployed to workers.dev
 - 2026-08-25 — signed production webhook and live issue/edit/close/reopen/search/cache acceptance passed
 - 2026-08-25 — production Chromium acceptance passed at 390px and 1440px
+- 2026-08-25 — `issues.sarthakagrawal.dev` selected as the canonical production origin
 
 ## Products
 
