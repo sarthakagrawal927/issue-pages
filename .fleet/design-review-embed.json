@@ -1,0 +1,59 @@
+{
+  "$schema": "fleet.design-review.v1",
+  "version": 1,
+  "project": "issue-pages",
+  "target": "embeddable repository publication",
+  "mode": "preserve",
+  "register": "product",
+  "context": {
+    "product": "PRODUCT.md",
+    "design": "DESIGN.md"
+  },
+  "direction": {
+    "references": [],
+    "probes": [],
+    "selected": "compact-repository-folio",
+    "approval": "not-required",
+    "before": "artifacts/design/reader-1440.png"
+  },
+  "evidence": {
+    "screenshots": [
+      {
+        "width": 390,
+        "path": "artifacts/design/reader-390.png"
+      },
+      {
+        "width": 768,
+        "path": "artifacts/design/reader-768.png"
+      },
+      {
+        "width": 1440,
+        "path": "artifacts/design/reader-1440.png"
+      }
+    ],
+    "projectCheck": {
+      "command": "pnpm check",
+      "status": "pass"
+    },
+    "critique": {
+      "score": 34,
+      "maximum": 40
+    },
+    "audit": {
+      "score": 19,
+      "maximum": 20
+    },
+    "unresolved": {
+      "p0": 0,
+      "p1": 0
+    },
+    "detector": {
+      "posture": "advisory",
+      "findings": []
+    }
+  },
+  "ownerFeedback": {
+    "decision": "delegated",
+    "note": "Owner delegated final visual approval for IssuePages on 2026-08-25."
+  }
+}
