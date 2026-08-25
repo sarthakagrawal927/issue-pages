@@ -11,9 +11,9 @@ import {
 } from "../src/lib/github-reader";
 import { renderMarkdown } from "../src/lib/markdown";
 import { checkContentSafety } from "../src/lib/safety";
-import { detectSpam } from "../src/lib/spam";
-import { slugify } from "../src/lib/slug";
 import { verifyGitHubSignature } from "../src/lib/signature";
+import { slugify } from "../src/lib/slug";
+import { detectSpam } from "../src/lib/spam";
 import { parityGitHubHtml, parityMarkdown } from "./fixtures/github-markdown";
 
 afterEach(() => {

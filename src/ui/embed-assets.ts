@@ -44,7 +44,7 @@ img { max-width:100%; height:auto; }
 .embed-byline { margin:.75rem 0 2.2rem; color:var(--muted); font-size:.82rem; }
 .embed-labels { display:flex; flex-wrap:wrap; gap:.35rem; margin:.85rem 0; }
 .embed-labels span { border:1px solid currentColor; padding:.2rem .42rem; font-size:.68rem; font-weight:750; }
-.prose { max-width:72ch; overflow-wrap:anywhere; font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif; font-size:clamp(1rem,2.4vw,1.12rem); line-height:1.75; }
+.prose { max-width:72ch; overflow-wrap:anywhere; font-size:clamp(1rem,2.4vw,1.08rem); line-height:1.72; }
 .prose h1,.prose h2,.prose h3 { margin:1.8em 0 .55em; font-family:"Avenir Next",Avenir,"Segoe UI",ui-sans-serif,system-ui,sans-serif; line-height:1.1; }
 .prose h1 { font-size:2.25rem; }.prose h2 { font-size:1.75rem; }.prose h3 { font-size:1.35rem; }
 .prose pre,.highlight { max-width:100%; overflow-x:auto; padding:1rem; background:var(--slate); color:#f2efe2; }

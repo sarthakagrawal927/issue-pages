@@ -254,6 +254,7 @@ describe("public Worker routes", () => {
     expect(body).toContain("This website is a GitHub repository");
     expect(body).toContain("Owner-only pilot");
     expect(body).toContain("Everyone else is held for review");
+    expect(body).toContain('href="/embed"');
   });
 
   it("redirects the permanent issue URL and renders the canonical article", async () => {
@@ -302,6 +303,25 @@ describe("public Worker routes", () => {
     const body = await response.text();
     expect(body).toContain("complete https://github.com/owner/repository URL");
     expect(body).toContain('<meta name="robots" content="noindex,nofollow,noarchive">');
+  });
+
+  it("builds a copy-paste embed and a live preview without calling GitHub server-side", async () => {
+    const before = readerRequests.length;
+    const response = await exports.default.fetch(
+      new Request(
+        "http://localhost:8787/embed?repo=acme%2Fbuilder-notes&theme=dark&density=compact&accent=%23123456",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(readerRequests).toHaveLength(before);
+    const body = await response.text();
+    expect(body).toContain("Paste one script. Get the whole repository.");
+    expect(body).toContain("data-repo=&quot;acme/builder-notes&quot;");
+    expect(body).toContain('data-repo="acme/builder-notes"');
+    expect(body).toContain('data-theme="dark"');
+    expect(body).toContain('data-density="compact"');
+    expect(body).toContain('data-accent="#123456"');
   });
 
   it("lists public issues, excludes pull requests, and never sends credentials", async () => {

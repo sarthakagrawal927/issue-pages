@@ -13,6 +13,35 @@ moderation holds and review, discovery, cursor pagination, D1 FTS5 search,
 revision-aware article caching, visible-tab update polling, and a read-through
 view of arbitrary public repository issues.
 
+## Embed a repository publication
+
+Paste one script anywhere that accepts custom HTML:
+
+```html
+<script
+  async
+  src="https://issues.sarthakagrawal.dev/embed.js"
+  data-repo="owner/repository"
+  data-theme="auto"
+></script>
+```
+
+The embed is a complete read-only publication, not a preview card. Readers can
+page through the repository, open full issue bodies, read labels and reactions,
+and load the bounded GitHub discussion without leaving the frame. Pull requests
+are excluded. The frame resizes itself as readers navigate.
+
+The supported presentation controls are deliberately bounded:
+
+- `data-theme="auto|light|dark"`
+- `data-density="comfortable|compact"`
+- `data-accent="#RRGGBB"`
+
+Set width or surrounding spacing on the host page as normal CSS. Arbitrary
+in-frame CSS and remote fonts are not accepted, so content remains isolated and
+updates cannot silently break a host website. Invalid repository values render
+an inert error and make no GitHub request.
+
 ## Architecture
 
 ```text
@@ -211,6 +240,8 @@ content. GitHub remains the place to edit or delete source content.
 - `/read` — choose any public GitHub repository
 - `/github/:owner/:repo` — read its issues; pull requests are excluded
 - `/github/:owner/:repo/issues/:issue/:slug` — read one issue and its bounded discussion
+- `/embed/:owner/:repo` — frame-safe, cursor-paginated repository publication
+- `/embed/:owner/:repo/issues/:issue/:slug` — full issue and deferred discussion inside the embed
 
 Universal-reader routes are read-only and send both HTML and HTTP `noindex`,
 `nofollow`, and `noarchive` directives.

@@ -27,6 +27,8 @@ ten people other than the creator publish.
 The website has two explicit modes. Its publishing experiment is a live,
 readable projection of one public GitHub repository. Its universal reader turns
 issues from any public repository into uncatalogued, read-only pages on demand.
+The same reader can be installed as a complete, paginated publication with one
+embeddable script.
 GitHub remains the editor, identity, discussion system, and source of truth;
 IssuePages adds moderation and discovery only to the publishing repository.
 
@@ -49,6 +51,11 @@ newest, recently updated, random, and search views on the website.
   or sitemaps.
 - Universal-reader routes are noindex and exclude pull requests. Editing,
   reacting, and commenting remain on GitHub.
+- The embed exposes the repository index, cursor pagination, full issue pages,
+  reactions, labels, archive state, and deferred discussion inside a sandboxed,
+  automatically resized frame.
+- Embed presentation supports bounded theme, density, and accent controls. It
+  does not accept arbitrary CSS or remote fonts.
 - Universal-reader issue bodies must not wait for comments. Discussions load
   from a same-origin sanitized fragment, reserve their layout while loading,
   offer retry/GitHub recovery, and make no request when the issue has no replies.

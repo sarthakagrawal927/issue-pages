@@ -75,6 +75,7 @@ main { min-height: 70vh; }
 .reader-callout { max-width: 1430px; margin: 0 auto 1rem; border-block: 1px solid var(--ink); padding: 1.5rem clamp(1rem,3vw,2.5rem); display: grid; grid-template-columns: minmax(16rem,.75fr) minmax(18rem,1fr) auto; gap: clamp(1.25rem,3vw,3rem); align-items: center; }
 .reader-callout h2 { max-width: 18ch; margin: 0; font: 700 clamp(1.75rem,3vw,2.8rem)/1.02 var(--display); letter-spacing: -.025em; }
 .reader-callout p { margin-block: 0; }
+.reader-callout__actions { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .section--split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 .section-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; border-bottom: 1px solid var(--ink); margin-bottom: .35rem; }
 .section-head h2 { margin: 0; font: 700 clamp(1.65rem,2.6vw,2.35rem)/1.05 var(--display); letter-spacing: -.02em; }
@@ -172,6 +173,22 @@ main { min-height: 70vh; }
 .repo-form .field-error { border: 1px solid #d99786; background: #5b3028; color: #ffe6df; padding: .7rem .8rem; }
 .reader-boundary { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(12rem,.35fr) 1fr; gap: 1rem; border-block: 1px solid var(--rule); padding: 1rem 0; color: var(--muted); }
 .reader-boundary strong { color: var(--ink); }
+.embed-builder { max-width: 1260px; margin: 0 auto; padding: clamp(2rem,5vw,5rem) clamp(1rem,3vw,2.5rem); display: grid; grid-template-columns: minmax(0,.8fr) minmax(24rem,1fr); gap: clamp(1.5rem,4vw,4rem); align-items: start; }
+.embed-builder__intro { border-top: 7px solid var(--gold); padding-top: 1rem; }
+.embed-builder__intro h1 { max-width: 12ch; margin: 0 0 1rem; font: 700 clamp(2.7rem,5vw,4.8rem)/.96 var(--display); letter-spacing: -.035em; text-wrap: balance; }
+.embed-config { box-shadow: 4px 4px 0 var(--gold-soft); }
+.embed-config > input { width: 100%; }
+.embed-config__options { display: grid; grid-template-columns: 1fr 1fr auto; gap: .75rem; margin: 1rem 0; }
+.embed-config__options label { margin: 0; color: #d7d6ca; }
+.embed-config select, .embed-config input[type="color"] { width: 100%; min-height: 46px; margin-top: .4rem; border: 1px solid var(--paper); background: var(--paper-bright); color: var(--ink); padding: .4rem .55rem; font: inherit; }
+.embed-config input[type="color"] { min-width: 4.5rem; padding: .25rem; }
+.embed-config > button { min-height: 48px; border: 1px solid var(--paper); background: var(--gold); color: var(--ink); padding: .75rem 1rem; cursor: pointer; font: 850 .76rem/1.15 var(--display); text-transform: uppercase; }
+.embed-code, .embed-preview { grid-column: 1 / -1; border-top: 1px solid var(--ink); padding-top: 1.25rem; }
+.embed-code { display: grid; grid-template-columns: minmax(14rem,.4fr) minmax(0,1fr); gap: 1rem 2rem; }
+.embed-code h2, .embed-preview h2 { margin: 0; font: 700 clamp(1.7rem,3vw,2.5rem)/1 var(--display); }
+.embed-code pre { max-width: 100%; overflow-x: auto; margin: 0; background: var(--slate); color: var(--paper); padding: 1rem; }
+.embed-code > p { grid-column: 2; margin: 0; color: var(--muted); font-size: .82rem; }
+.embed-preview > [data-issue-pages-embed] { margin-top: 1rem; }
 .reader-listing { max-width: 1240px; }
 .reader-listing .listing-title { overflow-wrap: anywhere; }
 .repo-slash { color: var(--gold); padding-inline: .08em; }
@@ -210,6 +227,7 @@ mark { background: var(--gold-soft); color: var(--ink); padding-inline: .08em; }
   .reader-callout { grid-template-columns: 1fr 1fr; }
   .reader-callout .button { justify-self: start; }
   .reader-shell { grid-template-columns: 1fr; }
+  .embed-builder { grid-template-columns: 1fr; }
   .page-shell { grid-template-columns: 1fr; }
   .page-rail { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .page-rail h1 { grid-column: 1 / -1; }
@@ -233,6 +251,10 @@ mark { background: var(--gold-soft); color: var(--ink); padding-inline: .08em; }
   .repo-form__control { grid-template-columns: 1fr; }
   .repo-form button { min-height: 52px; border-left: 0; border-top: 2px solid var(--paper); }
   .reader-boundary { grid-template-columns: 1fr; }
+  .embed-config__options { grid-template-columns: 1fr 1fr; }
+  .embed-config__options label:last-child { grid-column: 1 / -1; }
+  .embed-code { grid-template-columns: 1fr; }
+  .embed-code > p { grid-column: 1; }
   .steps { grid-template-columns: repeat(3,1fr); }
   .steps li { border-right: 1px solid var(--rule); }
   .steps li:last-child { border-right: 0; }

@@ -1,4 +1,5 @@
 import type { SearchRow } from "../data/repository";
+import type { EmbedOptions } from "../lib/embed";
 import type {
   PublicComment,
   PublicIssueDiscussion,
@@ -257,8 +258,8 @@ export function homePage(
       <p class="eyebrow">Public repository reader</p>
       <h2 id="reader-callout-title">Read issues from any public repository.</h2>
     </div>
-    <p>Paste an <strong>owner/repository</strong>. IssuePages fetches a current, read-only view from GitHub without installing an app or adding a webhook.</p>
-    <a class="button button--light" href="/read">Choose a repository →</a>
+    <p>Paste an <strong>owner/repository</strong>. Read it here or install the complete paginated publication on your own website with one script.</p>
+    <div class="reader-callout__actions"><a class="button button--light" href="/read">Read a repository →</a><a class="text-link" href="/embed">Embed on your site ↗</a></div>
   </section>
   <section class="section section--split">
     <div>
@@ -454,6 +455,46 @@ export function readerFormPage(value = "", error = ""): string {
       <strong>Two modes, one website.</strong>
       <span>Your IssuePages repository is the moderated publishing experiment. Other repositories are uncatalogued, read-through views and are not indexed by search engines.</span>
     </div>
+  </div>`;
+}
+
+export function embedBuilderPage(
+  value: string,
+  error: string,
+  repository: PublicRepository | null,
+  options: EmbedOptions,
+  origin: string,
+): string {
+  const repoName = repository ? `${repository.owner}/${repository.repo}` : "owner/repository";
+  const accentAttribute = options.accent === "#d3aa36" ? "" : `\n  data-accent="${options.accent}"`;
+  const snippet = `<script\n  async\n  src="${origin}/embed.js"\n  data-repo="${repoName}"\n  data-theme="${options.theme}"\n  data-density="${options.density}"${accentAttribute}\n></script>`;
+  return `<div class="embed-builder">
+    <section class="embed-builder__intro">
+      <p class="eyebrow">Embeddable publication</p>
+      <h1>Paste one script. Get the whole repository.</h1>
+      <p>Issue index, cursor pagination, full issue bodies, labels, reactions, archive state, and deferred discussion—responsive and read-only.</p>
+    </section>
+    <form class="embed-config repo-form" action="/embed" method="get">
+      <label for="embed-repository">Public GitHub repository</label>
+      <input id="embed-repository" name="repo" value="${escapeHtml(value)}" placeholder="owner/repository" spellcheck="false" required${error ? ' aria-invalid="true"' : ""}>
+      <div class="embed-config__options">
+        <label>Theme<select name="theme"><option value="auto"${options.theme === "auto" ? " selected" : ""}>Auto</option><option value="light"${options.theme === "light" ? " selected" : ""}>Light</option><option value="dark"${options.theme === "dark" ? " selected" : ""}>Dark</option></select></label>
+        <label>Density<select name="density"><option value="comfortable"${options.density === "comfortable" ? " selected" : ""}>Comfortable</option><option value="compact"${options.density === "compact" ? " selected" : ""}>Compact</option></select></label>
+        <label>Accent<input name="accent" type="color" value="${options.accent}"></label>
+      </div>
+      ${error ? `<p class="field-error" role="alert">${escapeHtml(error)}</p>` : ""}
+      <button type="submit">Build embed →</button>
+    </form>
+    <section class="embed-code" aria-labelledby="embed-code-title">
+      <div><p class="eyebrow">Install</p><h2 id="embed-code-title">Copy into your page</h2></div>
+      <pre><code>${escapeHtml(snippet)}</code></pre>
+      <p>Style the width and surrounding spacing on your site. The publication inside stays isolated and automatically resizes.</p>
+    </section>
+    ${
+      repository
+        ? `<section class="embed-preview" aria-labelledby="embed-preview-title"><p class="eyebrow">Live preview</p><h2 id="embed-preview-title">${escapeHtml(repoName)}</h2><script async src="/embed.js" data-repo="${escapeHtml(repoName)}" data-theme="${options.theme}" data-density="${options.density}" data-accent="${options.accent}"></script></section>`
+        : ""
+    }
   </div>`;
 }
 

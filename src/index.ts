@@ -1,4 +1,5 @@
-import { Hono, type Context } from "hono";
+import { type Context, Hono } from "hono";
+import { decideModeration, listModerationQueue } from "./admin/handler";
 import {
   getArticleByIssueNumber,
   getAuthor,
@@ -8,22 +9,20 @@ import {
   listArticles,
   searchArticles,
 } from "./data/repository";
-import { decideModeration, listModerationQueue } from "./admin/handler";
 import { articleCacheKey } from "./lib/cache";
-import { decodeCursor, encodeCursor, type CursorPayload } from "./lib/cursor";
+import { type CursorPayload, decodeCursor, encodeCursor } from "./lib/cursor";
+import { type EmbedOptions, embedQuery, parseEmbedOptions } from "./lib/embed";
 import {
   decodeReaderCursor,
+  GitHubReaderError,
   getPublicIssue,
   getPublicIssueDiscussion,
-  GitHubReaderError,
   listPublicIssues,
-  parsePublicRepository,
   type PublicRepository,
+  parsePublicRepository,
 } from "./lib/github-reader";
-import { embedQuery, parseEmbedOptions, type EmbedOptions } from "./lib/embed";
 import type { AppBindings, ArticleListRow } from "./types";
 import { articlePollingScript, styles } from "./ui/assets";
-import { embedStyles } from "./ui/embed-assets";
 import {
   embedDiscussionFragment,
   embedErrorPage,
@@ -31,20 +30,22 @@ import {
   embedLayout,
   embedRepositoryPage,
 } from "./ui/embed";
+import { embedStyles } from "./ui/embed-assets";
 import {
   articlePage,
   authorIntro,
+  embedBuilderPage,
   errorPage,
   homePage,
   layout,
   listingPage,
-  publicIssueReaderPage,
   publicDiscussionFragment,
+  publicIssueReaderPage,
   readerErrorPage,
   readerFormPage,
   repositoryReaderPage,
-  searchPage,
   type SiteIdentity,
+  searchPage,
 } from "./ui/templates";
 import { handleGitHubWebhook } from "./webhooks/handler";
 
@@ -305,6 +306,19 @@ app.get("/read", (c) => {
       `/github/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`,
       303,
     ),
+  );
+});
+
+app.get("/embed", (c) => {
+  const input = c.req.query("repo") ?? "";
+  const options = embedOptions(c);
+  const repository = input ? parsePublicRepository(input) : null;
+  const error =
+    input && !repository ? "Enter owner/repository or a complete GitHub repository URL." : "";
+  return html(
+    c,
+    "Embed a repository publication",
+    embedBuilderPage(input.slice(0, 300), error, repository, options, c.env.PUBLIC_ORIGIN),
   );
 });
 
