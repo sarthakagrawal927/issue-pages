@@ -1,3 +1,5 @@
+import { embedAccentForeground } from "../lib/embed";
+
 const discussion = document.querySelector<HTMLElement>("[data-reader-discussion]");
 
 function renderDiscussionError(container: HTMLElement, source: string): void {
@@ -131,6 +133,10 @@ if (embedChannel) {
     document.documentElement.dataset.theme = message.theme;
     if (typeof message.accent === "string" && /^#[\da-f]{6}$/i.test(message.accent)) {
       document.documentElement.style.setProperty("--embed-accent", message.accent);
+      document.documentElement.style.setProperty(
+        "--embed-accent-ink",
+        embedAccentForeground(message.accent),
+      );
     }
   });
 

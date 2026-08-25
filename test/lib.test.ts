@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decodeCursor, encodeCursor } from "../src/lib/cursor";
-import { embedQuery, issueMatchesEmbedFilters, parseEmbedOptions } from "../src/lib/embed";
+import {
+  embedAccentForeground,
+  embedQuery,
+  issueMatchesEmbedFilters,
+  parseEmbedOptions,
+} from "../src/lib/embed";
 import { normalizeGitHubHtml } from "../src/lib/github-html";
 import { renderGitHubMarkdown } from "../src/lib/github-markdown";
 import {
@@ -21,6 +26,13 @@ afterEach(() => {
 });
 
 describe("content primitives", () => {
+  it("chooses a contrast-safe foreground for embed accents", () => {
+    expect(embedAccentForeground("#ffffff")).toBe("#000000");
+    expect(embedAccentForeground("#000000")).toBe("#ffffff");
+    expect(embedAccentForeground("#9d2f2a")).toBe("#ffffff");
+    expect(embedAccentForeground("#777777")).toBe("#000000");
+  });
+
   it("creates stable slugs and opaque cursors", () => {
     expect(slugify("  A Page: Worth Keeping!  ")).toBe("a-page-worth-keeping");
     const cursor = encodeCursor("2026-08-25T00:00:00.000Z", 42);

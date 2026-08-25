@@ -371,6 +371,7 @@ describe("public Worker routes", () => {
     expect(body).toContain('data-theme="dark"');
     expect(body).toContain('data-density="compact"');
     expect(body).toContain("--embed-accent:#123456");
+    expect(body).toContain("--embed-accent-ink:#ffffff");
     expect(body).toContain('data-embed-channel="test-channel"');
     expect(body).toContain("A public reader issue");
     expect(body).not.toContain("Pull request result");

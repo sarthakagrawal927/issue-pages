@@ -6,7 +6,7 @@ FIRST VIEWPORT — Repository identity and the first real issue rows appear with
 FORM — Common Thread reduced to a host-safe folio; the minimal variant remains neutral.
 */
 import type { EmbedOptions } from "../lib/embed";
-import { embedQuery } from "../lib/embed";
+import { embedAccentForeground, embedQuery } from "../lib/embed";
 import type {
   PublicComment,
   PublicIssueDiscussion,
@@ -134,7 +134,7 @@ export function embedLayout(
 ): string {
   const renderedTheme = options.theme === "inherit" ? "auto" : options.theme;
   return `<!doctype html>
-<html lang="en" data-theme="${renderedTheme}" data-density="${options.density}" data-variant="${options.variant}" data-embed-channel="${escapeHtml(options.channel)}" style="--embed-accent:${options.accent}">
+<html lang="en" data-theme="${renderedTheme}" data-density="${options.density}" data-variant="${options.variant}" data-embed-channel="${escapeHtml(options.channel)}" style="--embed-accent:${options.accent};--embed-accent-ink:${embedAccentForeground(options.accent)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

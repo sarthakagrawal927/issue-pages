@@ -20,7 +20,7 @@ img { max-width:100%; height:auto; }
 .embed-header { min-height:58px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:.75rem; padding:.55rem var(--pad); border-top:1px dashed var(--embed-accent); border-bottom:1px solid var(--ink); background:var(--slate); color:#f7f1e5; }
 .embed-brand { font-size:.72rem; font-weight:800; text-decoration:none; }
 .embed-header strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:clamp(.95rem,3vw,1.2rem); }
-.embed-header strong span,.embed-intro h1 span { color:var(--embed-accent); }
+.embed-header strong span,.embed-intro h1 span { color:inherit; text-decoration:3px underline var(--embed-accent); text-underline-offset:.2em; }
 .embed-header > a:last-child { min-height:44px; display:inline-flex; align-items:center; font-size:.75rem; font-weight:750; }
 .embed-intro { display:flex; justify-content:space-between; align-items:end; gap:1rem; padding:clamp(1.1rem,4vw,2rem) var(--pad) .85rem; border-bottom:1px solid var(--ink); }
 .embed-intro p { margin:0 0 .35rem; color:var(--muted); font-size:.7rem; font-weight:750; }
@@ -28,7 +28,7 @@ img { max-width:100%; height:auto; }
 .embed-intro > span { flex:none; color:var(--muted); font-size:.75rem; }
 .embed-ledger { background:var(--sheet); }
 .embed-row { display:grid; grid-template-columns:5.2rem minmax(0,1fr) auto; min-height:88px; border-bottom:1px solid var(--rule); }
-.embed-number { display:flex; align-items:center; justify-content:center; padding:var(--row-pad); background:var(--embed-accent); color:#fff; font-size:1.05rem; font-weight:800; text-decoration:none; }
+.embed-number { display:flex; align-items:center; justify-content:center; padding:var(--row-pad); background:var(--embed-accent); color:var(--embed-accent-ink,#fff); font-size:1.05rem; font-weight:800; text-decoration:none; }
 .embed-row__body { min-width:0; padding:var(--row-pad); }
 .embed-row__title { display:block; font-size:1rem; font-weight:750; line-height:1.25; text-decoration:none; }
 .embed-row__body p { margin:.25rem 0 0; color:var(--muted); font-size:.76rem; }

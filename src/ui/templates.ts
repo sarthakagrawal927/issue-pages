@@ -474,7 +474,7 @@ export function embedBuilderPage(
     </section>
     <form class="embed-config repo-form" action="/embed" method="get">
       <label for="embed-repository">Public GitHub repository</label>
-      <input id="embed-repository" name="repo" value="${escapeHtml(value)}" placeholder="owner/repository" spellcheck="false" required${error ? ' aria-invalid="true"' : ""}>
+      <input id="embed-repository" name="repo" value="${escapeHtml(value)}" placeholder="owner/repository" spellcheck="false" required${error ? ' aria-invalid="true" aria-describedby="embed-repository-error" autofocus' : ""}>
       <div class="embed-config__options">
         <label>Theme<select name="theme"><option value="auto"${options.theme === "auto" ? " selected" : ""}>Auto</option><option value="inherit"${options.theme === "inherit" ? " selected" : ""}>Inherit host</option><option value="light"${options.theme === "light" ? " selected" : ""}>Light</option><option value="dark"${options.theme === "dark" ? " selected" : ""}>Dark</option></select></label>
         <label>Density<select name="density"><option value="comfortable"${options.density === "comfortable" ? " selected" : ""}>Comfortable</option><option value="compact"${options.density === "compact" ? " selected" : ""}>Compact</option></select></label>
@@ -486,7 +486,7 @@ export function embedBuilderPage(
       <input id="embed-label" name="label" value="${escapeHtml(options.label)}" placeholder="blog" maxlength="50">
       <label for="embed-author">Only issues by this GitHub author <span>(optional)</span></label>
       <input id="embed-author" name="author" value="${escapeHtml(options.author)}" placeholder="octocat" maxlength="39" spellcheck="false">
-      ${error ? `<p class="field-error" role="alert">${escapeHtml(error)}</p>` : ""}
+      ${error ? `<p id="embed-repository-error" class="field-error" role="alert">${escapeHtml(error)}</p>` : ""}
       <button type="submit">Build embed →</button>
     </form>
     <section class="embed-code" aria-labelledby="embed-code-title">

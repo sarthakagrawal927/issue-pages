@@ -19,6 +19,23 @@ interface FilterableIssue {
 
 const DEFAULT_ACCENT = "#9d2f2a";
 
+function relativeLuminance(hex: string): number {
+  const channels = [hex.slice(1, 3), hex.slice(3, 5), hex.slice(5, 7)].map((value) => {
+    const channel = Number.parseInt(value, 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const [red = 0, green = 0, blue = 0] = channels;
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+export function embedAccentForeground(accent: string): "#000000" | "#ffffff" {
+  if (!/^#[\da-f]{6}$/i.test(accent)) return "#ffffff";
+  const accentLuminance = relativeLuminance(accent);
+  const whiteContrast = 1.05 / (accentLuminance + 0.05);
+  const blackContrast = (accentLuminance + 0.05) / 0.05;
+  return blackContrast > whiteContrast ? "#000000" : "#ffffff";
+}
+
 function hasControlCharacters(value: string): boolean {
   return [...value].some((character) => {
     const codePoint = character.codePointAt(0) ?? 0;

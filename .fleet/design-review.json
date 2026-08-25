@@ -2,7 +2,7 @@
   "$schema": "fleet.design-review.v1",
   "version": 1,
   "project": "issue-pages",
-  "target": "public homepage and article system",
+  "target": "authored IssuePages public product system",
   "mode": "overhaul",
   "register": "brand",
   "context": {
@@ -11,9 +11,9 @@
   },
   "direction": {
     "references": [
-      "Are.na - content-led, non-algorithmic discovery",
-      "GitHub Issues - legible provenance and discussion metadata",
-      "nownownow - plain public-service directory ethos"
+      "Common Thread quality bar - hand-pieced provenance topology",
+      "GitHub Issues - permanent numbers, author identity, and source discussion",
+      "Owner constraint - simple and clean execution over literal textile complexity"
     ],
     "probes": [
       {
@@ -87,7 +87,7 @@
       }
     ],
     "projectCheck": {
-      "command": "pnpm check",
+      "command": "pnpm check && pnpm startup",
       "status": "pass"
     },
     "critique": {
@@ -104,18 +104,26 @@
     },
     "detector": {
       "posture": "advisory",
-      "findings": []
+      "findings": [
+        {
+          "antipattern": "side-tab",
+          "severity": "warning",
+          "file": "src/ui/assets.ts",
+          "disposition": "resolved",
+          "note": "The legacy four-pixel Markdown alert edge was reduced to the one-pixel semantic seam used by the final system."
+        }
+      ]
     },
     "latestPass": {
       "date": "2026-08-26",
       "lane": "overhaul",
-      "surface": "homepage, article, universal reader, search, and embed builder",
-      "browserEvidence": "Responsive screenshots inspected at 390, 768, and 1440 pixels.",
-      "httpEvidence": "Local Worker returned 200 for the homepage and live public-repository embed."
+      "surface": "homepage, article, universal reader, search, embed builder, and publication embed",
+      "browserEvidence": "Responsive screenshots inspected at 390, 768, and 1440 pixels; final homepage captures were refreshed after the contrast pass.",
+      "httpEvidence": "Local Worker returned 200 for the homepage and live public-repository embed; a white custom accent selected the dark contrast-safe foreground."
     }
   },
   "ownerFeedback": {
-    "decision": "delegated",
-    "note": "Owner delegated end-to-end completion; Common Field was selected after responsive comparison on 2026-08-26."
+    "decision": "keep",
+    "note": "Owner selected Common Thread and explicitly constrained the build to a simple, clean execution over literal or complex textile effects on 2026-08-26."
   }
 }

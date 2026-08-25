@@ -306,7 +306,7 @@ mark { background: var(--gold-soft); color: var(--ink); padding-inline: .08em; }
   --blue: #245c82;
   --field: #17324a;
   --field-deep: #102637;
-  --field-soft: #6f8798;
+  --field-soft: #536f82;
   --field-ink: #f7f1e5;
   --seam: #b84b41;
   --display: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
@@ -361,7 +361,7 @@ main { min-height: 76vh; }
 .dispatch-status--archived { border-color: var(--red); color: var(--red); }
 .empty-dispatch { color: #d9e2e7; }
 .reader-callout { max-width: 1216px; margin: 0 auto; border: 0; border-inline: 1px solid #536d7f; border-bottom: 1px solid #536d7f; background: var(--field-soft); color: #fff; padding: clamp(1.2rem,2.5vw,2rem); grid-template-columns: minmax(16rem,.9fr) minmax(18rem,1fr) auto; }
-.reader-callout .field-note { color: #fff; opacity: .8; }
+.reader-callout .field-note { color: #fff; }
 .reader-callout h2 { font: 650 clamp(1.45rem,2.5vw,2.15rem)/1.08 var(--display); }
 .reader-callout .button--light { border-color: #fff; }
 .reader-callout .text-link { color: #fff; }
