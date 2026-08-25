@@ -1,6 +1,6 @@
 # IssuePages — PROJECT STATUS
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 ## Why / What
 
@@ -13,7 +13,8 @@ small, personal pages without another account or publishing tool.
 **IN scope:** One indexed publishing repository; issues as pages; edits, labels,
 comments, reaction summaries, and archive state synchronized into D1; discovery;
 lexical search; moderation; cursor pagination; cached server-rendered pages; and
-an uncatalogued read-through view of issues from any public repository.
+an uncatalogued read-through view and embeddable publication of issues from any
+public repository.
 
 **OUT of scope:** Custom accounts or editor, private repositories or posts, direct on-site
 comments, personalized feeds, semantic search, newsletters, payments, custom
@@ -34,6 +35,9 @@ domains, multiple publishing repositories, and cross-repository discovery.
 
 ## Timeline
 
+- 2026-08-26 — Added label and author filters, host-theme inheritance, bounded
+  host-neutral styling, and repository-profile embeds for the three-surface
+  dogfood release
 - 2026-08-25 — public repository created and MVP specification started
 - 2026-08-25 — owner delegated final visual approval; design review passed
 - 2026-08-25 — GitHub-aware rich Markdown parity implemented locally
@@ -56,6 +60,7 @@ domains, multiple publishing repositories, and cross-repository discovery.
 - GitHub webhook ingestion endpoint
 - D1-backed read/search API
 - Read-through public GitHub repository viewer
+- Copy-paste repository publication embed
 
 ## Features (deployed owner-only pilot)
 
@@ -79,6 +84,9 @@ domains, multiple publishing repositories, and cross-repository discovery.
   prefetching, opaque pagination, ten-minute fresh caching, bounded background
   ETag revalidation, safe stale fallback, and universal noindex directives
 - Adaptive 15/30/60-second article polling and diagram-type Mermaid chunks
+- Sandboxed repository embeds with automatic height, cursor pagination, full
+  issue navigation, optional author/label filters, inherited host themes, and
+  bounded folio or minimal styling
 
 ## Todo / Planned / Deferred / Blocked
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decodeCursor, encodeCursor } from "../src/lib/cursor";
-import { embedQuery, parseEmbedOptions } from "../src/lib/embed";
+import { embedQuery, issueMatchesEmbedFilters, parseEmbedOptions } from "../src/lib/embed";
 import { normalizeGitHubHtml } from "../src/lib/github-html";
 import { renderGitHubMarkdown } from "../src/lib/github-markdown";
 import {
@@ -101,6 +101,20 @@ describe("content primitives", () => {
       author: "",
       variant: "folio",
     });
+  });
+
+  it("applies embed author and label filters to individual issues", () => {
+    const issue = {
+      author: { login: "SarthakAgrawal927" },
+      labels: [{ name: "Blog" }],
+    };
+    expect(issueMatchesEmbedFilters(issue, { author: "sarthakagrawal927", label: "blog" })).toBe(
+      true,
+    );
+    expect(issueMatchesEmbedFilters(issue, { author: "someone-else", label: "blog" })).toBe(false);
+    expect(issueMatchesEmbedFilters(issue, { author: "sarthakagrawal927", label: "notes" })).toBe(
+      false,
+    );
   });
 
   it("keeps public-reader latency and cache limits explicit", () => {

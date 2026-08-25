@@ -141,8 +141,8 @@ export function embedLayout(
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="color-scheme" content="light dark">
   <title>${escapeHtml(title)} · IssuePages embed</title>
-  <link rel="stylesheet" href="/embed.css?v=20260826-3">
-  <script type="module" src="/assets/reader.js?v=20260826-2"></script>
+  <link rel="stylesheet" href="/embed.css?v=20260826-6">
+  <script type="module" src="/assets/reader.js?v=20260826-3"></script>
   ${mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
 </head>
 <body>

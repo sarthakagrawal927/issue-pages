@@ -166,7 +166,7 @@ export function layout(
   <title>${escapeHtml(pageTitle)}</title>
   <link rel="stylesheet" href="/styles.css?v=20260825-6">
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
-  ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260825-1"></script>' : ""}
+  ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260826-3"></script>' : ""}
   ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
 </head>
 <body>
@@ -470,7 +470,7 @@ export function embedBuilderPage(
   const labelAttribute = options.label ? `\n  data-label="${options.label}"` : "";
   const authorAttribute = options.author ? `\n  data-author="${options.author}"` : "";
   const variantAttribute = options.variant === "minimal" ? `\n  data-variant="minimal"` : "";
-  const snippet = `<script\n  async\n  src="${origin}/embed.js"\n  data-repo="${repoName}"\n  data-theme="${options.theme}"\n  data-density="${options.density}"${variantAttribute}${accentAttribute}${labelAttribute}${authorAttribute}\n></script>`;
+  const snippet = `<script\n  async\n  src="${origin}/embed.js?v=20260826-2"\n  data-repo="${repoName}"\n  data-theme="${options.theme}"\n  data-density="${options.density}"${variantAttribute}${accentAttribute}${labelAttribute}${authorAttribute}\n></script>`;
   return `<div class="embed-builder">
     <section class="embed-builder__intro">
       <p class="eyebrow">Embeddable publication</p>
@@ -501,7 +501,7 @@ export function embedBuilderPage(
     </section>
     ${
       repository
-        ? `<section class="embed-preview" aria-labelledby="embed-preview-title"><p class="eyebrow">Live preview</p><h2 id="embed-preview-title">${escapeHtml(repoName)}</h2><script async src="/embed.js" data-repo="${escapeHtml(repoName)}" data-theme="${options.theme}" data-density="${options.density}" data-variant="${options.variant}" data-accent="${options.accent}"${options.label ? ` data-label="${escapeHtml(options.label)}"` : ""}${options.author ? ` data-author="${escapeHtml(options.author)}"` : ""}></script></section>`
+        ? `<section class="embed-preview" aria-labelledby="embed-preview-title"><p class="eyebrow">Live preview</p><h2 id="embed-preview-title">${escapeHtml(repoName)}</h2><script async src="/embed.js?v=20260826-2" data-repo="${escapeHtml(repoName)}" data-theme="${options.theme}" data-density="${options.density}" data-variant="${options.variant}" data-accent="${options.accent}"${options.label ? ` data-label="${escapeHtml(options.label)}"` : ""}${options.author ? ` data-author="${escapeHtml(options.author)}"` : ""}></script></section>`
         : ""
     }
   </div>`;

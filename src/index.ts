@@ -11,7 +11,12 @@ import {
 } from "./data/repository";
 import { articleCacheKey } from "./lib/cache";
 import { type CursorPayload, decodeCursor, encodeCursor } from "./lib/cursor";
-import { type EmbedOptions, embedQuery, parseEmbedOptions } from "./lib/embed";
+import {
+  type EmbedOptions,
+  embedQuery,
+  issueMatchesEmbedFilters,
+  parseEmbedOptions,
+} from "./lib/embed";
 import {
   decodeReaderCursor,
   GitHubReaderError,
@@ -661,6 +666,22 @@ async function embedIssue(c: Context<AppEnv>, redirectShort: boolean): Promise<R
       origin: c.env.PUBLIC_ORIGIN,
       ctx: c.executionCtx,
     });
+    if (!issueMatchesEmbedFilters(result.issue, options)) {
+      const repositoryUrl = `/embed/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}?${embedQuery(options, { cursor: backCursor })}`;
+      return embedHtml(
+        c,
+        "Issue outside this publication",
+        repository,
+        embedErrorPage(
+          404,
+          "Issue not in this publication",
+          "This issue does not match the author or label filters for this embedded publication.",
+          repositoryUrl,
+        ),
+        options,
+        { status: 404 },
+      );
+    }
     const canonical = `/embed/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/issues/${issueNumber}/${encodeURIComponent(result.issue.slug)}?${embedQuery(options, { back: backCursor })}`;
     if (redirectShort || c.req.param("slug") !== result.issue.slug) {
       return readerHeaders(c.redirect(canonical, 308));
@@ -685,6 +706,7 @@ async function embedIssue(c: Context<AppEnv>, redirectShort: boolean): Promise<R
 app.get("/embed/:owner/:repo/issues/:number", (c) => embedIssue(c, true));
 
 async function embedDiscussion(c: Context<AppEnv>): Promise<Response> {
+  const options = embedOptions(c);
   if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "embed-discussion"))) {
     return readerHeaders(c.body(null, 429, { "Cache-Control": "no-store", "Retry-After": "60" }));
   }
@@ -694,6 +716,15 @@ async function embedDiscussion(c: Context<AppEnv>): Promise<Response> {
     return readerHeaders(c.body(null, 404, { "Cache-Control": "no-store" }));
   }
   try {
+    const issue = await getPublicIssue({
+      repository,
+      issueNumber,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    if (!issueMatchesEmbedFilters(issue.issue, options)) {
+      return readerHeaders(c.body(null, 404, { "Cache-Control": "no-store" }));
+    }
     const result = await getPublicIssueDiscussion({
       repository,
       issueNumber,

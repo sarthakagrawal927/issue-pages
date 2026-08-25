@@ -400,6 +400,24 @@ describe("public Worker routes", () => {
     expect(outbound?.url).toContain("creator=reader-author");
   });
 
+  it("rejects issue and discussion routes outside the active embed filters", async () => {
+    const issue = await exports.default.fetch(
+      new Request(
+        "http://localhost:8787/embed/acme/filter-detail/issues/7?label=blog&author=reader-author",
+        { redirect: "manual" },
+      ),
+    );
+    expect(issue.status).toBe(404);
+    expect(await issue.text()).toContain("Issue not in this publication");
+
+    const discussion = await exports.default.fetch(
+      new Request(
+        "http://localhost:8787/embed/acme/filter-detail/issues/7/discussion?label=blog&author=reader-author",
+      ),
+    );
+    expect(discussion.status).toBe(404);
+  });
+
   it("keeps custom accents away from accessibility-critical focus contrast", async () => {
     const response = await exports.default.fetch(new Request("http://localhost:8787/embed.css"));
     expect(response.status).toBe(200);

@@ -12,6 +12,11 @@ export interface EmbedOptions {
   variant: EmbedVariant;
 }
 
+interface FilterableIssue {
+  author: { login: string };
+  labels: Array<{ name: string }>;
+}
+
 const DEFAULT_ACCENT = "#d3aa36";
 
 function hasControlCharacters(value: string): boolean {
@@ -57,4 +62,17 @@ export function embedQuery(
     if (value) params.set(key, value);
   }
   return params.toString();
+}
+
+export function issueMatchesEmbedFilters(
+  issue: FilterableIssue,
+  options: Pick<EmbedOptions, "author" | "label">,
+): boolean {
+  const authorMatches =
+    !options.author || issue.author.login.toLowerCase() === options.author.toLowerCase();
+  const normalizedLabel = options.label.normalize("NFKC").toLowerCase();
+  const labelMatches =
+    !normalizedLabel ||
+    issue.labels.some((label) => label.name.normalize("NFKC").toLowerCase() === normalizedLabel);
+  return authorMatches && labelMatches;
 }

@@ -20,7 +20,7 @@ Paste one script anywhere that accepts custom HTML:
 ```html
 <script
   async
-  src="https://issues.sarthakagrawal.dev/embed.js"
+  src="https://issues.sarthakagrawal.dev/embed.js?v=20260826-2"
   data-repo="owner/repository"
   data-theme="inherit"
   data-variant="minimal"
