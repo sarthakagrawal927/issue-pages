@@ -309,7 +309,7 @@ describe("public Worker routes", () => {
     const before = readerRequests.length;
     const response = await exports.default.fetch(
       new Request(
-        "http://localhost:8787/embed?repo=acme%2Fbuilder-notes&theme=inherit&density=compact&accent=%23123456&label=blog&author=octocat",
+        "http://localhost:8787/embed?repo=acme%2Fbuilder-notes&theme=inherit&density=compact&variant=minimal&accent=%23123456&label=blog&author=octocat",
       ),
     );
     expect(response.status).toBe(200);
@@ -321,6 +321,7 @@ describe("public Worker routes", () => {
     expect(body).toContain('data-repo="acme/builder-notes"');
     expect(body).toContain('data-theme="inherit"');
     expect(body).toContain('data-density="compact"');
+    expect(body).toContain('data-variant="minimal"');
     expect(body).toContain('data-accent="#123456"');
     expect(body).toContain('data-label="blog"');
     expect(body).toContain('data-author="octocat"');
@@ -383,12 +384,13 @@ describe("public Worker routes", () => {
   it("filters an embed by label and issue author and preserves both filters", async () => {
     const response = await exports.default.fetch(
       new Request(
-        "http://localhost:8787/embed/acme/filter-notes?label=blog&author=reader-author&theme=inherit",
+        "http://localhost:8787/embed/acme/filter-notes?label=blog&author=reader-author&theme=inherit&variant=minimal",
       ),
     );
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(body).toContain('data-theme="auto"');
+    expect(body).toContain('data-variant="minimal"');
     expect(body).toContain("Issues tagged blog and by @reader-author");
     expect(body).toContain("label=blog&amp;author=reader-author");
     const outbound = readerRequests.find((entry) =>

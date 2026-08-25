@@ -23,6 +23,7 @@ Paste one script anywhere that accepts custom HTML:
   src="https://issues.sarthakagrawal.dev/embed.js"
   data-repo="owner/repository"
   data-theme="inherit"
+  data-variant="minimal"
   data-label="blog"
   data-author="octocat"
 ></script>
@@ -37,6 +38,7 @@ The supported presentation controls are deliberately bounded:
 
 - `data-theme="auto|inherit|light|dark"`
 - `data-density="comfortable|compact"`
+- `data-variant="folio|minimal"`
 - `data-accent="#RRGGBB"`
 - `data-accent-light="#RRGGBB"` and `data-accent-dark="#RRGGBB"`
 - `data-label="label name"` to include only issues carrying one GitHub label

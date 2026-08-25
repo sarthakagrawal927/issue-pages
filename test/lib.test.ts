@@ -69,6 +69,7 @@ describe("content primitives", () => {
       ["channel", "frame_42-safe"],
       ["label", "blog"],
       ["author", "octocat"],
+      ["variant", "minimal"],
     ]);
     const options = parseEmbedOptions((name) => values.get(name));
     expect(options).toEqual({
@@ -78,9 +79,10 @@ describe("content primitives", () => {
       channel: "frame_42-safe",
       label: "blog",
       author: "octocat",
+      variant: "minimal",
     });
     expect(embedQuery(options, { cursor: "page-two" })).toBe(
-      "theme=dark&density=compact&accent=%2312abef&channel=frame_42-safe&label=blog&author=octocat&cursor=page-two",
+      "theme=dark&density=compact&accent=%2312abef&channel=frame_42-safe&label=blog&author=octocat&variant=minimal&cursor=page-two",
     );
     const invalidValues = new Map([
       ["theme", "javascript:alert(1)"],
@@ -97,6 +99,7 @@ describe("content primitives", () => {
       channel: "",
       label: "",
       author: "",
+      variant: "folio",
     });
   });
 
