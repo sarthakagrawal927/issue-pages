@@ -6,7 +6,11 @@ const readerRequests: Array<{
   url: string;
   headers: Headers;
   redirect: string | undefined;
+  cf: RequestInitCfProperties | undefined;
 }> = [];
+const concurrentReaderStarts = new Set<"issue" | "comments">();
+let concurrentReaderGate: Promise<void> | null = null;
+let releaseConcurrentReaderGate: (() => void) | null = null;
 
 function publicIssue(number = 7, pullRequest = false): Record<string, unknown> {
   return {
@@ -164,7 +168,16 @@ beforeAll(() => {
         );
       }
       const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : {}));
-      readerRequests.push({ url: url.toString(), headers, redirect: init?.redirect });
+      readerRequests.push({
+        url: url.toString(),
+        headers,
+        redirect: init?.redirect,
+        cf: init?.cf,
+      });
+      if (url.pathname.includes("/concurrent/")) {
+        concurrentReaderStarts.add(url.pathname.endsWith("/comments") ? "comments" : "issue");
+        if (concurrentReaderGate) await concurrentReaderGate;
+      }
       if (
         url.pathname.includes("/not-modified/") &&
         headers.get("if-none-match") === '"issue-etag"'
@@ -309,9 +322,13 @@ describe("public Worker routes", () => {
     const outbound = readerRequests.find((entry) =>
       entry.url.includes("/repos/acme/notes/issues?"),
     );
-    expect(outbound?.headers.get("accept")).toBe("application/vnd.github.full+json");
+    expect(outbound?.headers.get("accept")).toBe("application/vnd.github+json");
     expect(outbound?.headers.has("authorization")).toBe(false);
     expect(outbound?.redirect).toBe("manual");
+    expect(outbound?.cf).toEqual({
+      cacheEverything: true,
+      cacheTtlByStatus: { "200-299": 600, "300-599": 0 },
+    });
     await expect(env.DB.prepare("SELECT COUNT(*) AS count FROM articles").first()).resolves.toEqual(
       beforeArticles,
     );
@@ -335,6 +352,32 @@ describe("public Worker routes", () => {
     expect(body).toContain("Showing the first 1 comments");
     expect(body).not.toContain("<script");
     expect(body).not.toContain("javascript:");
+    const issueOutbound = readerRequests.find((entry) =>
+      entry.url.endsWith("/repos/acme/notes/issues/7"),
+    );
+    const commentsOutbound = readerRequests.find((entry) =>
+      entry.url.includes("/repos/acme/notes/issues/7/comments?"),
+    );
+    expect(issueOutbound?.headers.get("accept")).toBe("application/vnd.github.full+json");
+    expect(commentsOutbound?.headers.get("accept")).toBe("application/vnd.github.full+json");
+  });
+
+  it("starts issue and comment hydration concurrently", async () => {
+    concurrentReaderStarts.clear();
+    concurrentReaderGate = new Promise<void>((resolve) => {
+      releaseConcurrentReaderGate = resolve;
+    });
+    const responsePromise = exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/concurrent/issues/7/a-public-reader-issue"),
+    );
+    await vi.waitFor(() => {
+      expect(concurrentReaderStarts).toEqual(new Set(["issue", "comments"]));
+    });
+    releaseConcurrentReaderGate?.();
+    const response = await responsePromise;
+    concurrentReaderGate = null;
+    releaseConcurrentReaderGate = null;
+    expect(response.status).toBe(200);
   });
 
   it("rejects direct pull-request issue paths", async () => {

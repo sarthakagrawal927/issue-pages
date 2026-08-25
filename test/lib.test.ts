@@ -5,6 +5,7 @@ import { renderGitHubMarkdown } from "../src/lib/github-markdown";
 import {
   decodeReaderCursor,
   encodeReaderCursor,
+  GITHUB_READER_POLICY,
   parsePublicRepository,
 } from "../src/lib/github-reader";
 import { renderMarkdown } from "../src/lib/markdown";
@@ -57,6 +58,15 @@ describe("content primitives", () => {
     expect(decodeReaderCursor(cursor)).toBe(2);
     expect(decodeReaderCursor("not-a-cursor")).toBeNull();
     expect(decodeReaderCursor(encodeReaderCursor(501))).toBeNull();
+  });
+
+  it("keeps public-reader latency and cache limits explicit", () => {
+    expect(GITHUB_READER_POLICY).toEqual({
+      freshTtlSeconds: 600,
+      staleTtlSeconds: 604_800,
+      timeoutMs: 4_000,
+      listPageSize: 12,
+    });
   });
 
   it("renders GFM and removes unsafe HTML", () => {

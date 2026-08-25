@@ -44,6 +44,8 @@ domains, multiple publishing repositories, and cross-repository discovery.
 - 2026-08-25 — production Chromium acceptance passed at 390px and 1440px
 - 2026-08-25 — `issues.sarthakagrawal.dev` selected as the canonical production origin
 - 2026-08-25 — universal public-repository issue reader implemented and released
+- 2026-08-25 — universal-reader hot path shortened with tiered fetch caching,
+  compact indexes, concurrent article hydration, and a four-second failure bound
 
 ## Products
 
@@ -70,8 +72,8 @@ domains, multiple publishing repositories, and cross-repository discovery.
 - Worker integration tests, local migration verification, and dry-run bundle
 - Universal `/read` and `/github/...` routes with strict repository parsing,
   unauthenticated bounded GitHub reads, pull-request exclusion, sanitized rich
-  issue/comment rendering, opaque pagination, two-tier edge caching, ETag
-  revalidation, safe stale fallback, and universal noindex directives
+  issue/comment rendering, opaque pagination, ten-minute tiered fetch and local
+  caching, ETag revalidation, safe stale fallback, and universal noindex directives
 
 ## Todo / Planned / Deferred / Blocked
 

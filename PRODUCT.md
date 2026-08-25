@@ -44,7 +44,8 @@ newest, recently updated, random, and search views on the website.
 - One indexed, webhook-driven public publishing repository only.
 - Any public repository may be opened in the universal reader without
   installation. Those routes use bounded unauthenticated GitHub reads and a
-  short edge cache; they never enter D1, moderation, feeds, search, or sitemaps.
+  ten-minute tiered fetch cache plus a local last-safe cache; they never enter
+  D1, moderation, feeds, search, or sitemaps.
 - Universal-reader routes are noindex and exclude pull requests. Editing,
   reacting, and commenting remain on GitHub.
 - GitHub issue number is the durable page identifier; title slugs may change.

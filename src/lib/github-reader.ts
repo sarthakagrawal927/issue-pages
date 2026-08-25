@@ -3,12 +3,22 @@ import { slugify } from "./slug";
 
 const GITHUB_API = "https://api.github.com";
 const API_VERSION = "2022-11-28";
-const FRESH_TTL_SECONDS = 120;
-const STALE_TTL_SECONDS = 86_400;
+const GITHUB_JSON_MEDIA = "application/vnd.github+json";
+const GITHUB_FULL_MEDIA = "application/vnd.github.full+json";
+const FRESH_TTL_SECONDS = 600;
+const STALE_TTL_SECONDS = 604_800;
+const UPSTREAM_TIMEOUT_MS = 4_000;
 const MAX_RESPONSE_BYTES = 2_000_000;
-const LIST_PAGE_SIZE = 20;
+const LIST_PAGE_SIZE = 12;
 const COMMENT_LIMIT = 50;
 const CACHE_SCHEMA = 1;
+
+export const GITHUB_READER_POLICY = Object.freeze({
+  freshTtlSeconds: FRESH_TTL_SECONDS,
+  staleTtlSeconds: STALE_TTL_SECONDS,
+  timeoutMs: UPSTREAM_TIMEOUT_MS,
+  listPageSize: LIST_PAGE_SIZE,
+});
 
 interface ReaderExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -379,9 +389,13 @@ function mapGitHubFailure(response: Response): GitHubReaderError {
   return new GitHubReaderError(503, "unavailable");
 }
 
-async function githubRequest(path: string, etag: string | null): Promise<Response> {
+async function githubRequest(
+  path: string,
+  etag: string | null,
+  mediaType: typeof GITHUB_JSON_MEDIA | typeof GITHUB_FULL_MEDIA,
+): Promise<Response> {
   const headers = new Headers({
-    Accept: "application/vnd.github.full+json",
+    Accept: mediaType,
     "User-Agent": "IssuePages-public-reader",
     "X-GitHub-Api-Version": API_VERSION,
   });
@@ -389,7 +403,14 @@ async function githubRequest(path: string, etag: string | null): Promise<Respons
   return fetch(`${GITHUB_API}${path}`, {
     headers,
     redirect: "manual",
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    cf: {
+      cacheEverything: true,
+      cacheTtlByStatus: {
+        "200-299": FRESH_TTL_SECONDS,
+        "300-599": 0,
+      },
+    },
   });
 }
 
@@ -397,6 +418,7 @@ async function cachedGitHubRead<T>(options: {
   origin: string;
   key: string;
   path: string;
+  mediaType: typeof GITHUB_JSON_MEDIA | typeof GITHUB_FULL_MEDIA;
   ctx: ReaderExecutionContext;
   validate: (entry: unknown) => entry is T;
   transform: (payload: unknown, response: Response) => T;
@@ -411,7 +433,7 @@ async function cachedGitHubRead<T>(options: {
       ? staleCandidate
       : null;
   try {
-    const response = await githubRequest(options.path, stale?.etag ?? null);
+    const response = await githubRequest(options.path, stale?.etag ?? null, options.mediaType);
     if (response.status === 304 && stale) {
       const refreshed = { ...stale, storedAt: new Date().toISOString() };
       writeCached(options.ctx, options.origin, options.key, refreshed);
@@ -509,6 +531,7 @@ export async function listPublicIssues(options: {
     origin: options.origin,
     key: `list:${options.repository.owner}/${options.repository.repo}:${options.page}`,
     path: `${base}/issues?state=all&sort=updated&direction=desc&per_page=${LIST_PAGE_SIZE}&page=${options.page}`,
+    mediaType: GITHUB_JSON_MEDIA,
     ctx: options.ctx,
     validate: isIssueList,
     transform(payload, response) {
@@ -538,10 +561,11 @@ export async function getPublicIssue(options: {
   ctx: ReaderExecutionContext;
 }): Promise<PublicIssuePage> {
   const base = apiRepositoryPath(options.repository);
-  const issueResult = await cachedGitHubRead({
+  const issuePromise = cachedGitHubRead({
     origin: options.origin,
     key: `issue:${options.repository.owner}/${options.repository.repo}:${options.issueNumber}`,
     path: `${base}/issues/${options.issueNumber}`,
+    mediaType: GITHUB_FULL_MEDIA,
     ctx: options.ctx,
     validate: isPublicIssue,
     transform(payload) {
@@ -550,27 +574,35 @@ export async function getPublicIssue(options: {
       return issue;
     },
   });
+  const commentsPromise = cachedGitHubRead({
+    origin: options.origin,
+    key: `comments:${options.repository.owner}/${options.repository.repo}:${options.issueNumber}`,
+    path: `${base}/issues/${options.issueNumber}/comments?per_page=${COMMENT_LIMIT}&page=1`,
+    mediaType: GITHUB_FULL_MEDIA,
+    ctx: options.ctx,
+    validate: isCommentList,
+    transform(payload, response) {
+      if (!Array.isArray(payload)) throw new GitHubReaderError(503, "unavailable");
+      return {
+        comments: payload.flatMap((entry) => {
+          const comment = commentFrom(entry);
+          return comment ? [comment] : [];
+        }),
+        next: hasNextPage(response),
+      };
+    },
+  });
+  const [issueSettled, commentsSettled] = await Promise.allSettled([issuePromise, commentsPromise]);
+  if (issueSettled.status === "rejected") throw issueSettled.reason;
+  const issueResult = issueSettled.value;
   let commentsResult: CachedResult<{ comments: PublicComment[]; next: boolean }> | null = null;
-  try {
-    commentsResult = await cachedGitHubRead({
-      origin: options.origin,
-      key: `comments:${options.repository.owner}/${options.repository.repo}:${options.issueNumber}`,
-      path: `${base}/issues/${options.issueNumber}/comments?per_page=${COMMENT_LIMIT}&page=1`,
-      ctx: options.ctx,
-      validate: isCommentList,
-      transform(payload, response) {
-        if (!Array.isArray(payload)) throw new GitHubReaderError(503, "unavailable");
-        return {
-          comments: payload.flatMap((entry) => {
-            const comment = commentFrom(entry);
-            return comment ? [comment] : [];
-          }),
-          next: hasNextPage(response),
-        };
-      },
-    });
-  } catch (error) {
-    if (error instanceof GitHubReaderError && error.code === "not_found") throw error;
+  if (commentsSettled.status === "fulfilled") {
+    commentsResult = commentsSettled.value;
+  } else if (
+    commentsSettled.reason instanceof GitHubReaderError &&
+    commentsSettled.reason.code === "not_found"
+  ) {
+    throw commentsSettled.reason;
   }
   return {
     repository: options.repository,

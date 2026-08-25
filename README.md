@@ -36,7 +36,9 @@ owner/repository input
           ↓ strict parser
 unauthenticated GitHub REST
           ↓ bounded JSON + GitHub HTML
-sanitize → short fresh cache + last-safe cache
+ tiered fetch cache → sanitize
+          ↓
+ten-minute local cache + last-safe cache
           ↓
 noindex repository and issue pages
 ```
@@ -51,6 +53,11 @@ pages, label pages, or the sitemap. Reader calls always use the fixed GitHub API
 origin without credentials, apply explicit payload/time limits, reject pull
 requests, and serve a dated last-safe copy only for transient failures. A
 definitive missing/private response never falls back to stale content.
+
+Successful GitHub subrequests use Cloudflare's tiered `fetch` cache for ten
+minutes. Repository indexes request the compact JSON representation; rendered
+HTML is requested only for issue bodies and comments. Cold issue and comment
+requests run concurrently, and the upstream timeout is four seconds.
 
 ## Local development
 
