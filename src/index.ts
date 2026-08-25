@@ -11,6 +11,13 @@ import {
 import { decideModeration, listModerationQueue } from "./admin/handler";
 import { articleCacheKey } from "./lib/cache";
 import { decodeCursor, encodeCursor, type CursorPayload } from "./lib/cursor";
+import {
+  decodeReaderCursor,
+  getPublicIssue,
+  GitHubReaderError,
+  listPublicIssues,
+  parsePublicRepository,
+} from "./lib/github-reader";
 import type { AppBindings, ArticleListRow } from "./types";
 import { articlePollingScript, styles } from "./ui/assets";
 import {
@@ -20,6 +27,10 @@ import {
   homePage,
   layout,
   listingPage,
+  publicIssueReaderPage,
+  readerErrorPage,
+  readerFormPage,
+  repositoryReaderPage,
   searchPage,
   type SiteIdentity,
 } from "./ui/templates";
@@ -67,6 +78,92 @@ function html(c: Context<AppEnv>, title: string, body: string): Response {
     "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
   );
   return response;
+}
+
+function readerHeaders(response: Response, cacheState?: "FRESH" | "STALE"): Response {
+  const headers = new Headers(response.headers);
+  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  if (cacheState) headers.set("X-IssuePages-Reader-Cache", cacheState);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+app.use("/read", async (c, next) => {
+  await next();
+  c.res = readerHeaders(c.res);
+});
+
+app.use("/github/*", async (c, next) => {
+  await next();
+  c.res = readerHeaders(c.res);
+});
+
+function readerHtml(
+  c: Context<AppEnv>,
+  title: string,
+  body: string,
+  options: { status?: 200 | 400 | 404 | 429 | 503; mermaid?: boolean; stale?: boolean } = {},
+): Response {
+  const status = options.status ?? 200;
+  const response = c.html(
+    layout(siteIdentity(c.env), title, body, {
+      description: "Read public GitHub issues as clean, read-only pages.",
+      reader: true,
+      robots: true,
+      ...(options.mermaid === undefined ? {} : { mermaid: options.mermaid }),
+    }),
+    status,
+    {
+      "Cache-Control":
+        status === 200
+          ? "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400"
+          : "no-store",
+    },
+  );
+  return readerHeaders(response, status === 200 ? (options.stale ? "STALE" : "FRESH") : undefined);
+}
+
+function readerError(c: Context<AppEnv>, error: unknown): Response {
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  const repositoryHref = repository
+    ? `/github/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`
+    : undefined;
+  const requestUrl = new URL(c.req.url);
+  const retryHref = `${requestUrl.pathname}${requestUrl.search}`;
+  if (error instanceof GitHubReaderError) {
+    if (error.code === "not_found") {
+      return readerHtml(
+        c,
+        "Repository unavailable",
+        readerErrorPage(
+          404,
+          "Public issues unavailable",
+          "The repository or issue may be missing, private, or have issues disabled.",
+          { ...(repositoryHref ? { repositoryHref } : {}) },
+        ),
+        { status: 404 },
+      );
+    }
+    const response = readerHtml(
+      c,
+      "GitHub temporarily unavailable",
+      readerErrorPage(
+        503,
+        "GitHub could not answer",
+        error.code === "rate_limited"
+          ? "The shared public GitHub allowance is exhausted. Wait a minute and try again."
+          : "The public reader could not refresh this repository. Try again shortly.",
+        { retryHref, ...(repositoryHref ? { repositoryHref } : {}) },
+      ),
+      { status: 503 },
+    );
+    response.headers.set("Retry-After", "60");
+    return response;
+  }
+  throw error;
 }
 
 function parsePageCursor(
@@ -143,6 +240,131 @@ app.get("/", async (c) => {
   ]);
   return html(c, "IssuePages", homePage(siteIdentity(c.env), newest, updated));
 });
+
+app.get("/read", (c) => {
+  const input = c.req.query("repo") ?? "";
+  if (!input) return readerHtml(c, "Read any public repository", readerFormPage());
+  const repository = parsePublicRepository(input);
+  if (!repository) {
+    return readerHtml(
+      c,
+      "Choose a public repository",
+      readerFormPage(
+        input.slice(0, 300),
+        "Enter owner/repository or a complete https://github.com/owner/repository URL.",
+      ),
+      { status: 400 },
+    );
+  }
+  return readerHeaders(
+    c.redirect(
+      `/github/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`,
+      303,
+    ),
+  );
+});
+
+async function readerRepository(c: Context<AppEnv>): Promise<Response> {
+  if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "reader"))) {
+    const response = readerHtml(
+      c,
+      "Reader paused",
+      readerErrorPage(429, "Too many repository reads", "Wait a minute, then try again.", {
+        retryHref: c.req.path,
+      }),
+      { status: 429 },
+    );
+    response.headers.set("Retry-After", "60");
+    return response;
+  }
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  if (!repository) {
+    return readerHtml(
+      c,
+      "Repository unavailable",
+      readerErrorPage(
+        404,
+        "Public issues unavailable",
+        "That is not a valid public repository path.",
+      ),
+      { status: 404 },
+    );
+  }
+  const page = decodeReaderCursor(c.req.query("cursor"));
+  if (page === null) {
+    return readerHtml(
+      c,
+      "Invalid page",
+      readerErrorPage(400, "That page link is invalid", "Return to the repository and try again.", {
+        repositoryHref: `/github/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`,
+      }),
+      { status: 400 },
+    );
+  }
+  try {
+    const result = await listPublicIssues({
+      repository,
+      page,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    return readerHtml(c, `${repository.owner}/${repository.repo}`, repositoryReaderPage(result), {
+      stale: result.stale,
+    });
+  } catch (error) {
+    return readerError(c, error);
+  }
+}
+
+app.get("/github/:owner/:repo", readerRepository);
+
+async function readerIssue(c: Context<AppEnv>, redirectShort: boolean): Promise<Response> {
+  if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "reader"))) {
+    const response = readerHtml(
+      c,
+      "Reader paused",
+      readerErrorPage(429, "Too many repository reads", "Wait a minute, then try again.", {
+        retryHref: c.req.path,
+      }),
+      { status: 429 },
+    );
+    response.headers.set("Retry-After", "60");
+    return response;
+  }
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  const issueNumber = Number(c.req.param("number"));
+  if (!repository || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
+    return readerHtml(
+      c,
+      "Issue unavailable",
+      readerErrorPage(404, "Public issue unavailable", "That is not a valid public issue path."),
+      { status: 404 },
+    );
+  }
+  try {
+    const result = await getPublicIssue({
+      repository,
+      issueNumber,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    const canonical = `/github/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/issues/${issueNumber}/${encodeURIComponent(result.issue.slug)}`;
+    if (redirectShort || c.req.param("slug") !== result.issue.slug) {
+      return readerHeaders(c.redirect(canonical, 308));
+    }
+    const hasMermaid =
+      result.issue.hasMermaid || result.comments.some((comment) => comment.hasMermaid);
+    return readerHtml(c, result.issue.title, publicIssueReaderPage(result), {
+      mermaid: hasMermaid,
+      stale: result.stale,
+    });
+  } catch (error) {
+    return readerError(c, error);
+  }
+}
+
+app.get("/github/:owner/:repo/issues/:number", (c) => readerIssue(c, true));
+app.get("/github/:owner/:repo/issues/:number/:slug", (c) => readerIssue(c, false));
 
 async function renderListing(c: Context<AppEnv>, sort: "newest" | "updated"): Promise<Response> {
   const rawCursor = c.req.query("cursor");

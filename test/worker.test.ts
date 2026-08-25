@@ -2,6 +2,92 @@ import { env, exports } from "cloudflare:workers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 let renderProbeAvailable = false;
+const readerRequests: Array<{
+  url: string;
+  headers: Headers;
+  redirect: string | undefined;
+}> = [];
+
+function publicIssue(number = 7, pullRequest = false): Record<string, unknown> {
+  return {
+    id: 70 + number,
+    number,
+    title: number === 7 ? "A public reader issue" : "Pull request result",
+    body: "Reader **body**.",
+    body_text: "Reader body.",
+    body_html: '<p dir="auto">Reader <strong>body</strong>.</p><script>alert(1)</script>',
+    html_url: `https://github.com/acme/notes/issues/${number}`,
+    state: "open",
+    created_at: "2026-08-20T09:00:00.000Z",
+    updated_at: "2026-08-25T09:00:00.000Z",
+    comments: 1,
+    user: {
+      id: 41,
+      login: "reader-author",
+      avatar_url: "https://avatars.githubusercontent.com/u/41?v=4",
+      html_url: "https://github.com/reader-author",
+    },
+    labels: [{ id: 1, name: "notes", color: "d3aa36", description: null }],
+    reactions: { heart: 2, total_count: 2 },
+    ...(pullRequest ? { pull_request: { url: "https://api.github.com/pulls/8" } } : {}),
+  };
+}
+
+function publicComment(): Record<string, unknown> {
+  return {
+    id: 701,
+    body: "A reply.",
+    body_text: "A reply.",
+    body_html: '<p dir="auto">A <em>reply</em>.</p><img src="javascript:alert(1)">',
+    html_url: "https://github.com/acme/notes/issues/7#issuecomment-701",
+    created_at: "2026-08-21T09:00:00.000Z",
+    updated_at: "2026-08-21T09:00:00.000Z",
+    user: {
+      id: 42,
+      login: "commenter",
+      avatar_url: "https://avatars.githubusercontent.com/u/42?v=4",
+      html_url: "https://github.com/commenter",
+    },
+    reactions: { "+1": 1, total_count: 1 },
+  };
+}
+
+async function seedStaleReaderIssue(repository: string): Promise<void> {
+  const key = encodeURIComponent(`issue:acme/${repository}:7`);
+  const request = new Request(new URL(`/__cache/github-reader/v1/stale/${key}`, env.PUBLIC_ORIGIN));
+  await caches.default.put(
+    request,
+    Response.json(
+      {
+        version: 1,
+        storedAt: new Date().toISOString(),
+        etag: '"issue-etag"',
+        value: {
+          number: 7,
+          title: "A cached public issue",
+          slug: "a-cached-public-issue",
+          excerpt: "Cached public body.",
+          state: "open",
+          createdAt: "2026-08-20T09:00:00.000Z",
+          updatedAt: "2026-08-25T09:00:00.000Z",
+          author: {
+            login: "reader-author",
+            avatarUrl: "https://avatars.githubusercontent.com/u/41?v=4",
+            githubUrl: "https://github.com/reader-author",
+          },
+          labels: [],
+          commentCount: 0,
+          githubUrl: `https://github.com/acme/${repository}/issues/7`,
+          bodyHtml: "<p>Cached public body.</p>",
+          bodyText: "Cached public body.",
+          reactions: {},
+          hasMermaid: false,
+        },
+      },
+      { headers: { "Cache-Control": "public, s-maxage=86400" } },
+    ),
+  );
+}
 
 async function signedWebhook(payload: unknown, delivery: string): Promise<Request> {
   const body = JSON.stringify(payload);
@@ -63,13 +149,81 @@ beforeAll(() => {
       });
     }
     if (url.hostname === "api.github.com") {
-      if (String(init?.body).includes("render-failure-probe") && !renderProbeAvailable) {
+      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+      if (
+        method === "POST" &&
+        String(init?.body).includes("render-failure-probe") &&
+        !renderProbeAvailable
+      ) {
         return new Response("Unavailable", { status: 503 });
       }
-      return new Response(
-        '<p dir="auto">Published through <strong>GitHub</strong>.</p><script>alert(1)</script>',
-        { headers: { "content-type": "text/html; charset=utf-8" } },
-      );
+      if (method === "POST") {
+        return new Response(
+          '<p dir="auto">Published through <strong>GitHub</strong>.</p><script>alert(1)</script>',
+          { headers: { "content-type": "text/html; charset=utf-8" } },
+        );
+      }
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : {}));
+      readerRequests.push({ url: url.toString(), headers, redirect: init?.redirect });
+      if (
+        url.pathname.includes("/not-modified/") &&
+        headers.get("if-none-match") === '"issue-etag"'
+      ) {
+        return new Response(null, { status: 304 });
+      }
+      if (url.pathname.includes("/missing/") || url.pathname.includes("/private-repo/")) {
+        return Response.json({ message: "Not Found" }, { status: 404 });
+      }
+      if (url.pathname.includes("/rate-limited/")) {
+        return Response.json(
+          { message: "API rate limit exceeded" },
+          { status: 403, headers: { "x-ratelimit-remaining": "0" } },
+        );
+      }
+      if (url.pathname.includes("/stale-repo/")) {
+        return Response.json(
+          { message: "API rate limit exceeded" },
+          { status: 403, headers: { "x-ratelimit-remaining": "0" } },
+        );
+      }
+      if (url.pathname.endsWith("/issues/7/comments")) {
+        if (url.pathname.includes("/comments-down/")) {
+          return Response.json({ message: "Unavailable" }, { status: 503 });
+        }
+        return Response.json([publicComment()], {
+          headers: {
+            etag: '"comments-v1"',
+            link: '<https://api.github.com/next>; rel="next"',
+          },
+        });
+      }
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json([publicComment()], {
+          headers: {
+            etag: '"comments-v1"',
+            link: '<https://api.github.com/next>; rel="next"',
+          },
+        });
+      }
+      if (/\/issues\/\d+$/.test(url.pathname)) {
+        const number = Number(url.pathname.split("/").at(-1));
+        return Response.json(publicIssue(number, number === 8), {
+          headers: { etag: '"issue-v1"' },
+        });
+      }
+      if (url.pathname.endsWith("/issues")) {
+        const onlyPulls = url.pathname.includes("/all-prs/");
+        return Response.json(
+          onlyPulls ? [publicIssue(8, true)] : [publicIssue(), publicIssue(8, true)],
+          {
+            headers: {
+              etag: '"list-v1"',
+              link: '<https://api.github.com/next>; rel="next"',
+            },
+          },
+        );
+      }
+      return Response.json({ message: "Not Found" }, { status: 404 });
     }
     throw new Error(`unexpected_outbound_request:${url.hostname}`);
   });
@@ -114,6 +268,151 @@ describe("public Worker routes", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("A tested public page");
+  });
+
+  it("redirects a validated repository input into the noindex reader namespace", async () => {
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/read?repo=https%3A%2F%2Fgithub.com%2Facme%2Fnotes", {
+        redirect: "manual",
+      }),
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/github/acme/notes");
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+  });
+
+  it("rejects malformed repository input without an outbound request", async () => {
+    const before = readerRequests.length;
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/read?repo=https%3A%2F%2Fgithub.com.evil%2Facme%2Fnotes"),
+    );
+    expect(response.status).toBe(400);
+    expect(readerRequests).toHaveLength(before);
+    const body = await response.text();
+    expect(body).toContain("complete https://github.com/owner/repository URL");
+    expect(body).toContain('<meta name="robots" content="noindex,nofollow,noarchive">');
+  });
+
+  it("lists public issues, excludes pull requests, and never sends credentials", async () => {
+    const beforeArticles = await env.DB.prepare("SELECT COUNT(*) AS count FROM articles").first();
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/notes"),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+    expect(response.headers.get("x-issuepages-reader-cache")).toBe("FRESH");
+    const body = await response.text();
+    expect(body).toContain("A public reader issue");
+    expect(body).not.toContain("Pull request result");
+    expect(body).toContain("Older GitHub results");
+    expect(body).toContain('<meta name="robots" content="noindex,nofollow,noarchive">');
+    const outbound = readerRequests.find((entry) =>
+      entry.url.includes("/repos/acme/notes/issues?"),
+    );
+    expect(outbound?.headers.get("accept")).toBe("application/vnd.github.full+json");
+    expect(outbound?.headers.has("authorization")).toBe(false);
+    expect(outbound?.redirect).toBe("manual");
+    await expect(env.DB.prepare("SELECT COUNT(*) AS count FROM articles").first()).resolves.toEqual(
+      beforeArticles,
+    );
+  });
+
+  it("renders a sanitized issue and bounded comment discussion", async () => {
+    const short = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/notes/issues/7", { redirect: "manual" }),
+    );
+    expect(short.status).toBe(308);
+    expect(short.headers.get("location")).toBe("/github/acme/notes/issues/7/a-public-reader-issue");
+    expect(short.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/notes/issues/7/a-public-reader-issue"),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("Reader <strong>body</strong>");
+    expect(body).toContain("A <em>reply</em>");
+    expect(body).toContain("Showing the first 1 comments");
+    expect(body).not.toContain("<script");
+    expect(body).not.toContain("javascript:");
+  });
+
+  it("rejects direct pull-request issue paths", async () => {
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/notes/issues/8/not-an-issue"),
+    );
+    expect(response.status).toBe(404);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+  });
+
+  it("keeps repository absence private and maps exhausted shared limits to retryable errors", async () => {
+    const missing = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/missing"),
+    );
+    expect(missing.status).toBe(404);
+    expect(await missing.text()).toContain("missing, private, or have issues disabled");
+
+    const limited = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/rate-limited"),
+    );
+    expect(limited.status).toBe(503);
+    expect(limited.headers.get("retry-after")).toBe("60");
+    expect(limited.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+  });
+
+  it("keeps an issue readable when only fresh comments are unavailable", async () => {
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/comments-down/issues/7/a-public-reader-issue"),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("Discussion is temporarily unavailable");
+  });
+
+  it("keeps all-pull-request result pages navigable", async () => {
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/all-prs"),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("contain only pull requests");
+    expect(body).toContain("Older GitHub results");
+  });
+
+  it("serves the last safe issue on a transient GitHub limit", async () => {
+    await seedStaleReaderIssue("stale-repo");
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/stale-repo/issues/7/a-cached-public-issue"),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-issuepages-reader-cache")).toBe("STALE");
+    const body = await response.text();
+    expect(body).toContain("Cached public body");
+    expect(body).toContain("Showing the last safe copy");
+  });
+
+  it("revalidates a stale issue with its GitHub ETag", async () => {
+    await seedStaleReaderIssue("not-modified");
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/not-modified/issues/7/a-cached-public-issue"),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-issuepages-reader-cache")).toBe("FRESH");
+    expect(
+      readerRequests.some(
+        (entry) =>
+          entry.url.includes("/repos/acme/not-modified/issues/7") &&
+          entry.headers.get("if-none-match") === '"issue-etag"',
+      ),
+    ).toBe(true);
+  });
+
+  it("does not serve a stale copy after GitHub says the issue is unavailable", async () => {
+    await seedStaleReaderIssue("missing");
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/missing/issues/7/a-cached-public-issue"),
+    );
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain("Cached public body");
   });
 
   it("keeps maintainer issue #1 unpublished", async () => {

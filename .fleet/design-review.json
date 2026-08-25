@@ -62,6 +62,20 @@
         "path": "artifacts/design/rich-content-1440.png"
       }
     ],
+    "universalReaderScreenshots": [
+      {
+        "width": 390,
+        "path": "artifacts/design/reader-390.png"
+      },
+      {
+        "width": 768,
+        "path": "artifacts/design/reader-768.png"
+      },
+      {
+        "width": 1440,
+        "path": "artifacts/design/reader-1440.png"
+      }
+    ],
     "projectCheck": {
       "command": "pnpm check && pnpm startup",
       "status": "pass"

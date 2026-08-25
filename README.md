@@ -5,12 +5,13 @@
 IssuePages is a public publishing experiment where GitHub remains the editor,
 identity system, discussion system, and source of truth. A Cloudflare Worker
 verifies GitHub webhooks, applies safety checks, stores a public projection in
-D1, and serves cached pages without calling GitHub during normal website
-traffic.
+D1, and serves cached publishing pages without calling GitHub. A separate,
+uncatalogued reader can fetch issues from any public repository on demand.
 
 The deployed pilot implements issue and comment ingestion, reaction summaries, archive state,
 moderation holds and review, discovery, cursor pagination, D1 FTS5 search,
-revision-aware article caching, and visible-tab update polling.
+revision-aware article caching, visible-tab update polling, and a read-through
+view of arbitrary public repository issues.
 
 ## Architecture
 
@@ -28,10 +29,28 @@ GitHub issue / comment
    server-rendered site + Cache API
 ```
 
+The universal reader uses a separate path:
+
+```text
+owner/repository input
+          ↓ strict parser
+unauthenticated GitHub REST
+          ↓ bounded JSON + GitHub HTML
+sanitize → short fresh cache + last-safe cache
+          ↓
+noindex repository and issue pages
+```
+
 Only verified webhook and moderation-review routes mutate D1. Flagged or failed
 revisions stay in `pending_revisions`; they never replace the last known-good
 public content. The reserved GitHub label `internal` keeps maintainer issues off
 the website.
+
+Arbitrary repositories never enter D1, moderation, search, discovery, author
+pages, label pages, or the sitemap. Reader calls always use the fixed GitHub API
+origin without credentials, apply explicit payload/time limits, reject pull
+requests, and serve a dated last-safe copy only for transient failures. A
+definitive missing/private response never falls back to stale content.
 
 ## Local development
 
@@ -145,8 +164,9 @@ For a new environment or recovery deployment:
 GitHub does not expose a standalone repository `reaction` webhook event.
 Reaction totals included in later issue/comment payloads are projected, but a
 reaction by itself is not near-real-time in this release. Token-backed scheduled
-reconciliation is tracked separately; normal reader traffic will continue to
-avoid GitHub.
+reconciliation is tracked separately; canonical publishing-reader traffic will
+continue to avoid GitHub. Only the explicitly namespaced universal reader calls
+GitHub during a page request.
 
 The checked-in deploy command SHA-tags the Worker for provenance. Do not run it
 until the resource, secret, migration, and release steps are approved.
@@ -175,6 +195,12 @@ content. GitHub remains the place to edit or delete source content.
 - `/authors/:login`, `/labels/:slug`
 - `/search?q=...` — lexical search across titles, bodies, authors, labels, and comments
 - `/api/articles/:issue/version` — rate-limited polling response
+- `/read` — choose any public GitHub repository
+- `/github/:owner/:repo` — read its issues; pull requests are excluded
+- `/github/:owner/:repo/issues/:issue/:slug` — read one issue and its bounded discussion
+
+Universal-reader routes are read-only and send both HTML and HTTP `noindex`,
+`nofollow`, and `noarchive` directives.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md), [PRODUCT.md](PRODUCT.md), and
 [DESIGN.md](DESIGN.md) for current scope and decisions.

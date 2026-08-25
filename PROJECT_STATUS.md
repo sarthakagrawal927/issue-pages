@@ -10,19 +10,21 @@ community: open an issue and, after safety checks, it becomes a public page.
 **Users:** People who can write a GitHub issue and readers who want to discover
 small, personal pages without another account or publishing tool.
 
-**IN scope:** One public repository; issues as pages; edits, labels, comments,
-reaction summaries, and archive state synchronized into D1; discovery; lexical
-search; moderation; cursor pagination; cached server-rendered pages.
+**IN scope:** One indexed publishing repository; issues as pages; edits, labels,
+comments, reaction summaries, and archive state synchronized into D1; discovery;
+lexical search; moderation; cursor pagination; cached server-rendered pages; and
+an uncatalogued read-through view of issues from any public repository.
 
-**OUT of scope:** Custom accounts or editor, private posts, direct on-site
+**OUT of scope:** Custom accounts or editor, private repositories or posts, direct on-site
 comments, personalized feeds, semantic search, newsletters, payments, custom
-domains, and multiple publishing repositories.
+domains, multiple publishing repositories, and cross-repository discovery.
 
 ## Dependencies
 
 ### External
 
 - GitHub repository issues and webhooks
+- GitHub public Issues REST API for the universal reader
 - Cloudflare Workers, D1, Cache, and static assets
 - OpenAI Moderation API
 
@@ -41,12 +43,14 @@ domains, and multiple publishing repositories.
 - 2026-08-25 — signed production webhook and live issue/edit/close/reopen/search/cache acceptance passed
 - 2026-08-25 — production Chromium acceptance passed at 390px and 1440px
 - 2026-08-25 — `issues.sarthakagrawal.dev` selected as the canonical production origin
+- 2026-08-25 — universal public-repository issue reader implemented and released
 
 ## Products
 
 - Public responsive website
 - GitHub webhook ingestion endpoint
 - D1-backed read/search API
+- Read-through public GitHub repository viewer
 
 ## Features (deployed owner-only pilot)
 
@@ -64,6 +68,10 @@ domains, and multiple publishing repositories.
 - Revision-aware Cloudflare Cache keys and visible-tab article polling
 - Responsive Issue Dispatch interface and local sample fixtures
 - Worker integration tests, local migration verification, and dry-run bundle
+- Universal `/read` and `/github/...` routes with strict repository parsing,
+  unauthenticated bounded GitHub reads, pull-request exclusion, sanitized rich
+  issue/comment rendering, opaque pagination, two-tier edge caching, ETag
+  revalidation, safe stale fallback, and universal noindex directives
 
 ## Todo / Planned / Deferred / Blocked
 

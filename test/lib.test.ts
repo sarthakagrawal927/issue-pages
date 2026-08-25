@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { decodeCursor, encodeCursor } from "../src/lib/cursor";
 import { normalizeGitHubHtml } from "../src/lib/github-html";
 import { renderGitHubMarkdown } from "../src/lib/github-markdown";
+import {
+  decodeReaderCursor,
+  encodeReaderCursor,
+  parsePublicRepository,
+} from "../src/lib/github-reader";
 import { renderMarkdown } from "../src/lib/markdown";
 import { checkContentSafety } from "../src/lib/safety";
 import { detectSpam } from "../src/lib/spam";
@@ -20,6 +25,38 @@ describe("content primitives", () => {
     expect(cursor).not.toContain("=");
     expect(decodeCursor(cursor)).toEqual({ v: 1, sort: "2026-08-25T00:00:00.000Z", id: 42 });
     expect(decodeCursor("not-a-cursor")).toBeNull();
+  });
+
+  it("accepts only canonical public repository identifiers", () => {
+    expect(parsePublicRepository("octocat/Hello-World")).toEqual({
+      owner: "octocat",
+      repo: "Hello-World",
+    });
+    expect(parsePublicRepository("https://github.com/octocat/Hello-World.git")).toEqual({
+      owner: "octocat",
+      repo: "Hello-World",
+    });
+    for (const value of [
+      "http://github.com/octocat/Hello-World",
+      "https://github.com.evil/octocat/Hello-World",
+      "https://github.com@evil.test/octocat/Hello-World",
+      "https://github.com/octocat/Hello-World/issues/1",
+      "https://github.com/octocat/Hello-World?tab=issues",
+      "https://github.com/octocat%2Fevil/Hello-World",
+      "octocat/../Hello-World",
+      "octocat\\Hello-World",
+      "localhost:8787/private",
+    ]) {
+      expect(parsePublicRepository(value), value).toBeNull();
+    }
+  });
+
+  it("uses bounded opaque cursors for GitHub result pages", () => {
+    const cursor = encodeReaderCursor(2);
+    expect(cursor).not.toContain("=");
+    expect(decodeReaderCursor(cursor)).toBe(2);
+    expect(decodeReaderCursor("not-a-cursor")).toBeNull();
+    expect(decodeReaderCursor(encodeReaderCursor(501))).toBeNull();
   });
 
   it("renders GFM and removes unsafe HTML", () => {

@@ -16,7 +16,11 @@ the Fleet root into a repository.
 ## Product invariants
 
 - GitHub is the editor, identity, discussion system, and source of truth.
-- Normal site traffic reads D1 and Cloudflare Cache; it must not call GitHub.
+- Canonical publishing, discovery, and search traffic reads D1 and Cloudflare
+  Cache; it must not call GitHub.
+- The explicitly namespaced universal reader may make bounded, unauthenticated,
+  read-only GitHub calls for user-selected public repositories. It must never
+  write that content to D1 or reuse repository credentials.
 - Webhook signatures and repository identity must be verified before mutation.
 - New and changed user content is sanitized, spam-checked, and moderated before
   it becomes public. A flagged edit must not replace the last known-good public

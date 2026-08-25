@@ -1,4 +1,11 @@
 import type { SearchRow } from "../data/repository";
+import type {
+  PublicComment,
+  PublicIssueList,
+  PublicIssuePage,
+  PublicIssueSummary,
+  PublicRepository,
+} from "../lib/github-reader";
 import type { ArticleListRow, ArticleRow, CommentRow, GitHubUser, ModerationMode } from "../types";
 
 export interface SiteIdentity {
@@ -101,17 +108,18 @@ function repoHref(site: SiteIdentity): string {
   return `https://github.com/${encodeURIComponent(site.owner)}/${encodeURIComponent(site.repo)}`;
 }
 
-function header(site: SiteIdentity): string {
+function header(site: SiteIdentity, reader = false): string {
   return `<header class="site-header">
     <div class="site-header__inner">
       <a class="brand" href="/" aria-label="IssuePages home">IssuePages</a>
       <span class="header-note">A public repository, made readable.</span>
       <nav class="site-nav" aria-label="Primary navigation">
         <form class="search-mini" role="search" action="/search" method="get">
-          <label class="sr-only" for="site-search">Search pages</label>
-          <input id="site-search" name="q" type="search" placeholder="Search pages" autocomplete="off">
+          <label class="sr-only" for="site-search">Search published IssuePages</label>
+          <input id="site-search" name="q" type="search" placeholder="Search IssuePages" autocomplete="off">
           <button type="submit" aria-label="Search">Go</button>
         </form>
+        <a class="nav-link" href="/read"${reader ? ' aria-current="page"' : ""}>Read any repo</a>
         <a class="nav-link" href="/random">Random</a>
         <a class="nav-link" href="${publishHref(site)}" rel="external">Publish</a>
       </nav>
@@ -132,7 +140,13 @@ export function layout(
   site: SiteIdentity,
   title: string,
   body: string,
-  options: { description?: string; mermaid?: boolean; polling?: boolean } = {},
+  options: {
+    description?: string;
+    mermaid?: boolean;
+    polling?: boolean;
+    reader?: boolean;
+    robots?: boolean;
+  } = {},
 ): string {
   const pageTitle = title === "IssuePages" ? title : `${title} · IssuePages`;
   const description =
@@ -143,16 +157,17 @@ export function layout(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="${escapeHtml(description)}">
+  ${options.robots ? '<meta name="robots" content="noindex,nofollow,noarchive">' : ""}
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#d3aa36">
   <title>${escapeHtml(pageTitle)}</title>
-  <link rel="stylesheet" href="/styles.css?v=20260825-5">
+  <link rel="stylesheet" href="/styles.css?v=20260825-6">
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
   ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-1"></script>' : ""}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  ${header(site)}
+  ${header(site, options.reader)}
   <main id="main">${body}</main>
   ${footer(site)}
 </body>
@@ -233,6 +248,14 @@ export function homePage(
       </div>
       ${board}
     </section>
+  </section>
+  <section class="reader-callout" aria-labelledby="reader-callout-title">
+    <div>
+      <p class="eyebrow">Public repository reader</p>
+      <h2 id="reader-callout-title">Read issues from any public repository.</h2>
+    </div>
+    <p>Paste an <strong>owner/repository</strong>. IssuePages fetches a current, read-only view from GitHub without installing an app or adding a webhook.</p>
+    <a class="button button--light" href="/read">Choose a repository →</a>
   </section>
   <section class="section section--split">
     <div>
@@ -391,5 +414,162 @@ export function errorPage(code: number, heading: string, detail: string): string
     <h1 class="listing-title">${escapeHtml(heading)}</h1>
     <p class="listing-intro">${escapeHtml(detail)}</p>
     <p><a class="button button--light" href="/">Return to live pages →</a></p>
+  </div>`;
+}
+
+function readerRepositoryHref(repository: PublicRepository, cursor?: string | null): string {
+  const path = `/github/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`;
+  return cursor ? `${path}?cursor=${encodeURIComponent(cursor)}` : path;
+}
+
+function readerIssueHref(repository: PublicRepository, issue: PublicIssueSummary): string {
+  return `${readerRepositoryHref(repository)}/issues/${issue.number}/${encodeURIComponent(issue.slug)}`;
+}
+
+function freshnessNotice(stale: boolean, cachedAt: string): string {
+  if (!stale) return "";
+  return `<div class="reader-notice reader-notice--stale" role="status"><strong>Showing the last safe copy.</strong> GitHub could not refresh this page. Data is from ${datetime(cachedAt)}.</div>`;
+}
+
+export function readerFormPage(value = "", error = ""): string {
+  return `<div class="reader-shell">
+    <div class="reader-intro">
+      <p class="eyebrow">Universal reader</p>
+      <h1>Turn public issues into a reading view.</h1>
+      <p>Paste a public GitHub repository URL or <strong>owner/repository</strong>. Nothing is installed, copied into the publishing database, or added to this site’s feeds.</p>
+    </div>
+    <form class="repo-form" action="/read" method="get">
+      <label for="repository">Public GitHub repository</label>
+      <div class="repo-form__control">
+        <input id="repository" name="repo" value="${escapeHtml(value)}" placeholder="github.com/owner/repository" autocomplete="url" spellcheck="false" aria-describedby="repository-help${error ? " repository-error" : ""}"${error ? ' aria-invalid="true" autofocus' : ""}>
+        <button type="submit">Read issues →</button>
+      </div>
+      <p id="repository-help">Public issues only. GitHub remains the source for editing, reacting, and commenting.</p>
+      ${error ? `<p id="repository-error" class="field-error" role="alert">${escapeHtml(error)}</p>` : ""}
+    </form>
+    <div class="reader-boundary">
+      <strong>Two modes, one website.</strong>
+      <span>Your IssuePages repository is the moderated publishing experiment. Other repositories are uncatalogued, read-through views and are not indexed by search engines.</span>
+    </div>
+  </div>`;
+}
+
+function publicIssueStrip(repository: PublicRepository, issue: PublicIssueSummary): string {
+  const href = readerIssueHref(repository, issue);
+  const authorUrl = safeHttpsUrl(issue.author.githubUrl) ?? "https://github.com";
+  return `<article class="page-strip reader-strip">
+    <a class="page-strip__number" href="${href}" aria-label="Read issue ${issue.number}">#${issue.number}</a>
+    <div class="page-strip__body">
+      <a class="page-strip__title" href="${href}">${escapeHtml(issue.title)}</a>
+      <span class="page-strip__meta">by <a href="${escapeHtml(authorUrl)}" rel="external">@${escapeHtml(issue.author.login)}</a> · ${issue.commentCount} ${issue.commentCount === 1 ? "reply" : "replies"}</span>
+      ${issue.excerpt ? `<p class="reader-strip__excerpt">${escapeHtml(issue.excerpt)}</p>` : ""}
+    </div>
+    <span class="page-strip__date"><span>${issue.state === "closed" ? "Closed" : "Updated"}</span>${datetime(issue.updatedAt)}</span>
+  </article>`;
+}
+
+export function repositoryReaderPage(result: PublicIssueList): string {
+  const repoUrl = `https://github.com/${encodeURIComponent(result.repository.owner)}/${encodeURIComponent(result.repository.repo)}`;
+  const issues = result.issues.length
+    ? result.issues.map((issue) => publicIssueStrip(result.repository, issue)).join("")
+    : '<div class="empty-state"><strong>No issues on this result page.</strong><br>This GitHub page may be empty or contain only pull requests.</div>';
+  return `<div class="listing-shell reader-listing">
+    ${freshnessNotice(result.stale, result.cachedAt)}
+    <p class="eyebrow">Public repository reader</p>
+    <h1 class="listing-title">${escapeHtml(result.repository.owner)}<span class="repo-slash">/</span>${escapeHtml(result.repository.repo)}</h1>
+    <p class="listing-intro">Issues are fetched from GitHub and rendered as read-only pages. Pull requests are excluded; nothing here enters IssuePages search or discovery.</p>
+    <div class="reader-actions">
+      <a class="button button--light" href="/read">Choose another repository</a>
+      <a class="text-link" href="${repoUrl}" rel="external">Open repository on GitHub ↗</a>
+    </div>
+    <div class="listing">${issues}</div>
+    ${result.nextCursor || result.page > 1 ? `<nav class="pagination pagination--reader" aria-label="Pagination">${result.page > 1 ? `<a class="text-link" href="${readerRepositoryHref(result.repository)}">← Newest results</a>` : ""}${result.nextCursor ? `<a class="button button--light" href="${readerRepositoryHref(result.repository, result.nextCursor)}">Older GitHub results →</a>` : ""}</nav>` : ""}
+  </div>`;
+}
+
+function publicLabels(labels: PublicIssueSummary["labels"]): string {
+  if (labels.length === 0) return "";
+  return `<div class="tags" aria-label="Labels">${labels
+    .map((label) => `<span class="tag">${escapeHtml(label.name)}</span>`)
+    .join("")}</div>`;
+}
+
+function publicCommentView(comment: PublicComment): string {
+  const avatar = safeHttpsUrl(comment.author.avatarUrl);
+  const authorUrl = safeHttpsUrl(comment.author.githubUrl) ?? "https://github.com";
+  return `<article class="comment" id="comment-${comment.id}">
+    ${avatar ? `<img class="avatar" src="${escapeHtml(avatar)}" width="48" height="48" loading="lazy" alt="">` : '<span class="avatar" aria-hidden="true"></span>'}
+    <div>
+      <div class="comment__meta"><a href="${escapeHtml(authorUrl)}" rel="external">@${escapeHtml(comment.author.login)}</a> · ${datetime(comment.createdAt)} · <a href="${escapeHtml(comment.githubUrl)}" rel="external">source ↗</a></div>
+      <div class="prose">${comment.bodyHtml}</div>
+      ${reactionList(JSON.stringify(comment.reactions), `Comment by ${comment.author.login}`, comment.githubUrl)}
+    </div>
+  </article>`;
+}
+
+export function publicIssueReaderPage(result: PublicIssuePage): string {
+  const { repository, issue } = result;
+  const archived = issue.state === "closed";
+  const repoHref = readerRepositoryHref(repository);
+  const authorUrl = safeHttpsUrl(issue.author.githubUrl) ?? "https://github.com";
+  const discussion = result.commentsUnavailable
+    ? '<div class="empty-state"><strong>Discussion is temporarily unavailable.</strong><br>The issue is still readable; open GitHub for the canonical conversation.</div>'
+    : result.comments.length
+      ? result.comments.map(publicCommentView).join("")
+      : '<div class="empty-state">No replies yet. Discussion stays on the original GitHub issue.</div>';
+  return `<div class="page-shell reader-page">
+    <aside class="page-rail" aria-label="Issue details">
+      <p class="eyebrow">${escapeHtml(repository.owner)}/${escapeHtml(repository.repo)} · Issue #${issue.number}</p>
+      <h1>${escapeHtml(issue.title)}</h1>
+      ${publicLabels(issue.labels)}
+      <dl>
+        <dt>Author</dt><dd><a href="${escapeHtml(authorUrl)}" rel="external">@${escapeHtml(issue.author.login)}</a></dd>
+        <dt>Opened</dt><dd>${datetime(issue.createdAt)}</dd>
+        <dt>Last edited</dt><dd>${datetime(issue.updatedAt)}</dd>
+        <dt>GitHub state</dt><dd>${archived ? "Closed" : "Open"}</dd>
+      </dl>
+      <a class="button button--light" href="${escapeHtml(issue.githubUrl)}" rel="external">Open on GitHub <span aria-hidden="true">↗</span></a>
+      <a class="rail-back" href="${repoHref}">← All repository issues</a>
+    </aside>
+    <article class="article-pane">
+      ${freshnessNotice(result.stale, result.cachedAt)}
+      ${archived ? '<div class="archive-notice"><strong>Closed issue.</strong> This read-only page remains available while GitHub exposes the source.</div>' : ""}
+      <div class="article-route">
+        <span class="article-route__number">#${issue.number}</span>
+        <a class="article-route__source" href="${escapeHtml(issue.githubUrl)}" rel="external">Original issue</a>
+        <span class="article-route__status${archived ? " article-route__status--archived" : ""}">${archived ? "Closed" : "Open"}</span>
+      </div>
+      <div class="prose">${issue.bodyHtml || '<p class="empty-state">This issue has no body.</p>'}</div>
+      ${reactionList(JSON.stringify(issue.reactions), "Issue", issue.githubUrl)}
+      <section class="discussion" aria-labelledby="discussion-title">
+        <h2 id="discussion-title">Discussion <span>${issue.commentCount}</span></h2>
+        ${discussion}
+        ${result.commentsTruncated ? `<p class="reader-notice"><strong>Showing the first ${result.comments.length} comments.</strong> <a href="${escapeHtml(issue.githubUrl)}" rel="external">Continue on GitHub ↗</a></p>` : ""}
+      </section>
+      <nav class="onward onward--reader" aria-label="Keep reading">
+        <h2>Keep reading</h2>
+        <a href="${repoHref}">More from this repository</a>
+        <a href="/read">Choose another repository</a>
+        <a href="/">Visit the publishing experiment</a>
+      </nav>
+    </article>
+  </div>`;
+}
+
+export function readerErrorPage(
+  code: number,
+  heading: string,
+  detail: string,
+  options: { repositoryHref?: string; retryHref?: string } = {},
+): string {
+  return `<div class="listing-shell">
+    <div class="error-code" aria-hidden="true">${code}</div>
+    <h1 class="listing-title">${escapeHtml(heading)}</h1>
+    <p class="listing-intro">${escapeHtml(detail)}</p>
+    <div class="reader-actions reader-actions--error">
+      ${options.retryHref ? `<a class="button" href="${escapeHtml(options.retryHref)}">Try again →</a>` : ""}
+      ${options.repositoryHref ? `<a class="button button--light" href="${escapeHtml(options.repositoryHref)}">Back to repository</a>` : ""}
+      <a class="text-link" href="/read">Choose another repository</a>
+    </div>
   </div>`;
 }

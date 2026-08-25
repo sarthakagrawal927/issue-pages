@@ -24,10 +24,11 @@ ten people other than the creator publish.
 
 ## Positioning
 
-The website is a live, readable projection of one public GitHub repository.
+The website has two explicit modes. Its publishing experiment is a live,
+readable projection of one public GitHub repository. Its universal reader turns
+issues from any public repository into uncatalogued, read-only pages on demand.
 GitHub remains the editor, identity, discussion system, and source of truth;
-IssuePages adds moderation, a reading experience, discovery, and search rather
-than duplicating those systems.
+IssuePages adds moderation and discovery only to the publishing repository.
 
 ## Operating Context
 
@@ -40,7 +41,12 @@ newest, recently updated, random, and search views on the website.
 
 ## Capabilities and Constraints
 
-- One public publishing repository only.
+- One indexed, webhook-driven public publishing repository only.
+- Any public repository may be opened in the universal reader without
+  installation. Those routes use bounded unauthenticated GitHub reads and a
+  short edge cache; they never enter D1, moderation, feeds, search, or sitemaps.
+- Universal-reader routes are noindex and exclude pull requests. Editing,
+  reacting, and commenting remain on GitHub.
 - GitHub issue number is the durable page identifier; title slugs may change.
 - Normal site traffic must use Cloudflare D1 and Cache without calling GitHub.
 - Every user-content change must pass sanitization, spam checks, and OpenAI
@@ -61,9 +67,10 @@ newest, recently updated, random, and search views on the website.
 - GitHub repository webhooks do not emit a standalone reaction event. The MVP
   needs token-backed scheduled reconciliation before reaction-only changes can
   meet the automatic-update promise.
-- No custom accounts/editor, private posts, direct website comments,
-  personalized feeds, semantic search, newsletters, payments, custom domains,
-  multiple publishing repositories, or complex ranking in the MVP.
+- No custom accounts/editor, private repositories, private posts, direct
+  website comments, personalized feeds, semantic search, newsletters, payments,
+  custom domains, multiple publishing repositories, cross-repository discovery,
+  or complex ranking in the MVP.
 
 ## Brand Commitments
 
