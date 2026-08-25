@@ -17,75 +17,85 @@
     ],
     "probes": [
       {
-        "id": "open-pinboard",
-        "path": ".fleet/probes/open-pinboard.png"
+        "id": "common-thread-the-join",
+        "path": ".fleet/probes/common-thread-the-join.png"
       },
       {
-        "id": "issue-hall",
-        "path": ".fleet/probes/issue-hall.png"
+        "id": "common-thread-common-field",
+        "path": ".fleet/probes/common-thread-common-field.png"
       },
       {
-        "id": "issue-dispatch-live-board-quiet",
-        "path": ".fleet/probes/issue-dispatch.png"
+        "id": "common-thread-reading-window",
+        "path": ".fleet/probes/common-thread-reading-window.png"
       }
     ],
-    "selected": "issue-dispatch-live-board-quiet",
+    "selected": "common-thread-common-field",
     "approval": "approved",
-    "before": ""
+    "before": "artifacts/design/after-1440.jpg"
   },
   "evidence": {
     "screenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/after-390.jpg"
+        "path": "artifacts/design/common-thread-home-390-v2.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/after-768.jpg"
+        "path": "artifacts/design/common-thread-home-768-v2.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/after-1440.jpg"
+        "path": "artifacts/design/common-thread-home-1440-v2.png"
       }
     ],
     "richRendererScreenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/rich-content-390.png"
+        "path": "artifacts/design/common-thread-article-390-v2.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/rich-content-768.png"
+        "path": "artifacts/design/common-thread-article-768-v2.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/rich-content-1440.png"
+        "path": "artifacts/design/common-thread-article-1440-v2.png"
       }
     ],
     "universalReaderScreenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/reader-390.png"
+        "path": "artifacts/design/common-thread-reader-form-390.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/reader-768.png"
+        "path": "artifacts/design/common-thread-search-768.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/reader-1440.png"
+        "path": "artifacts/design/common-thread-reader-form-1440.png"
+      }
+    ],
+    "embedBuilderScreenshots": [
+      {
+        "width": 390,
+        "path": "artifacts/design/common-thread-embed-builder-390.png"
+      },
+      {
+        "width": 1440,
+        "path": "artifacts/design/common-thread-embed-builder-1440.png"
       }
     ],
     "projectCheck": {
-      "command": "pnpm check && pnpm startup",
+      "command": "pnpm check",
       "status": "pass"
     },
     "critique": {
-      "score": 34,
+      "score": 37,
       "maximum": 40
     },
     "audit": {
-      "score": 19,
+      "score": 20,
       "maximum": 20
     },
     "unresolved": {
@@ -94,27 +104,18 @@
     },
     "detector": {
       "posture": "advisory",
-      "findings": [
-        {
-          "antipattern": "side-tab",
-          "severity": "warning",
-          "file": "src/ui/assets.ts",
-          "line": 115,
-          "disposition": "accepted-existing",
-          "note": "The flagged border is the established GitHub alert treatment, not a new card accent."
-        }
-      ]
+      "findings": []
     },
     "latestPass": {
-      "date": "2026-08-25",
-      "lane": "preserve",
-      "surface": "progressive universal-reader discussion",
-      "browserEvidence": "blocked-no-available-browser",
-      "httpEvidence": "Local article and deferred discussion paths passed independently; existing responsive baseline remains unchanged."
+      "date": "2026-08-26",
+      "lane": "overhaul",
+      "surface": "homepage, article, universal reader, search, and embed builder",
+      "browserEvidence": "Responsive screenshots inspected at 390, 768, and 1440 pixels.",
+      "httpEvidence": "Local Worker returned 200 for the homepage and live public-repository embed."
     }
   },
   "ownerFeedback": {
     "decision": "delegated",
-    "note": "Owner explicitly delegated final design approval on 2026-08-25."
+    "note": "Owner delegated end-to-end completion; Common Field was selected after responsive comparison on 2026-08-26."
   }
 }

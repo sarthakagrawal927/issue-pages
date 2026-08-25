@@ -10,25 +10,30 @@
     "design": "DESIGN.md"
   },
   "direction": {
-    "references": [],
-    "probes": [],
-    "selected": "compact-repository-folio",
+    "references": ["Common Thread public field", "host-neutral issue folio"],
+    "probes": [
+      {
+        "id": "common-thread-reading-window",
+        "path": ".fleet/probes/common-thread-reading-window.png"
+      }
+    ],
+    "selected": "common-thread-folio",
     "approval": "not-required",
-    "before": "artifacts/design/reader-1440.png"
+    "before": "artifacts/design/embed-1440.png"
   },
   "evidence": {
     "screenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/embed-390.png"
+        "path": "artifacts/design/common-thread-embed-390.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/embed-768.png"
+        "path": "artifacts/design/common-thread-embed-768.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/embed-1440.png"
+        "path": "artifacts/design/common-thread-embed-1440.png"
       }
     ],
     "projectCheck": {
@@ -36,7 +41,7 @@
       "status": "pass"
     },
     "critique": {
-      "score": 37,
+      "score": 38,
       "maximum": 40
     },
     "audit": {
@@ -49,13 +54,11 @@
     },
     "detector": {
       "posture": "advisory",
-      "findings": [
-        "Three side-tab warnings are semantic Markdown blockquote and GitHub alert rules, not decorative card accents; retained for source-content hierarchy."
-      ]
+      "findings": []
     }
   },
   "ownerFeedback": {
     "decision": "delegated",
-    "note": "Owner delegated final visual approval for IssuePages on 2026-08-25."
+    "note": "Owner delegated end-to-end completion; the embed was verified at 390, 768, and 1440 pixels on 2026-08-26."
   }
 }

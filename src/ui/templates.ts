@@ -113,8 +113,8 @@ function repoHref(site: SiteIdentity): string {
 function header(site: SiteIdentity, reader = false): string {
   return `<header class="site-header">
     <div class="site-header__inner">
-      <a class="brand" href="/" aria-label="IssuePages home">IssuePages</a>
-      <span class="header-note">A public repository, made readable.</span>
+      <a class="brand" href="/" aria-label="IssuePages home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>IssuePages</span></a>
+      <span class="header-note">This website is a GitHub repository.</span>
       <nav class="site-nav" aria-label="Primary navigation">
         <form class="search-mini" role="search" action="/search" method="get">
           <label class="sr-only" for="site-search">Search published IssuePages</label>
@@ -162,9 +162,9 @@ export function layout(
   <meta name="description" content="${escapeHtml(description)}">
   ${options.robots ? '<meta name="robots" content="noindex,nofollow,noarchive">' : ""}
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#d3aa36">
+  <meta name="theme-color" content="#17324a">
   <title>${escapeHtml(pageTitle)}</title>
-  <link rel="stylesheet" href="/styles.css?v=20260825-6">
+  <link rel="stylesheet" href="/styles.css?v=20260826-7">
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
   ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260826-3"></script>' : ""}
   ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
@@ -228,46 +228,41 @@ export function homePage(
         .join("")
     : '<div class="empty-state">Updates will appear here after published pages change.</div>';
 
-  return `<section class="hero">
+  return `<section class="hero" aria-labelledby="home-title">
     <div class="hero__message">
-      <p class="eyebrow">A public publishing repository</p>
-      <h1>This website is a GitHub repository<span class="stop">.</span></h1>
-      <p class="hero-copy">Open an issue and leave your page on the internet. GitHub stays the editor, identity, and discussion; IssuePages makes it readable and discoverable.</p>
-      <a class="button" href="${publishHref(site)}" rel="external">${ownerOnly ? "Open a pilot issue" : "Publish something"} <span aria-hidden="true">↗</span></a>
+      <p class="field-note">This website is a GitHub repository.</p>
+      <h1 id="home-title">Open an issue and leave your page on the internet.</h1>
+      <p class="hero-copy">Write in Markdown. The title, author, edits, labels, reactions, and discussion stay attached when the issue becomes a page.</p>
+      <div class="hero-actions"><a class="button" href="${publishHref(site)}" rel="external">${ownerOnly ? "Open a pilot issue" : "Publish something"} <span aria-hidden="true">↗</span></a><a class="text-link" href="${repoHref(site)}" rel="external">See the repository</a></div>
       ${
         ownerOnly
           ? `<p class="pilot-notice"><strong>Owner-only pilot.</strong> Pages from @${escapeHtml(site.owner)} publish automatically. Everyone else is held for review until public moderation is connected.</p>`
           : '<p class="publish-trust">Uses your GitHub account. Safe pages appear automatically; held content waits for review.</p>'
       }
-      <ol class="steps" aria-label="How publishing works">
-        <li><strong>Write</strong> Open an issue</li>
-        <li><strong>Check</strong> ${ownerOnly ? "Pilot access runs" : "Safety review runs"}</li>
-        <li><strong>Read</strong> ${ownerOnly ? "Owner pages appear" : "The page appears"}</li>
-      </ol>
     </div>
     <section class="dispatch-board" aria-labelledby="live-board-title">
       <div class="dispatch-board__head">
-        <h2 id="live-board-title">Live pages</h2>
-        <span class="dispatch-board__legend">Newest public issues</span>
+        <h2 id="live-board-title">Newest pages</h2>
+        <span class="dispatch-board__legend">Joined to GitHub</span>
       </div>
       ${board}
     </section>
   </section>
   <section class="reader-callout" aria-labelledby="reader-callout-title">
     <div>
-      <p class="eyebrow">Public repository reader</p>
-      <h2 id="reader-callout-title">Read issues from any public repository.</h2>
+      <p class="field-note">Beyond this experiment</p>
+      <h2 id="reader-callout-title">Any public repository can be read this way.</h2>
     </div>
-    <p>Paste an <strong>owner/repository</strong>. Read it here or install the complete paginated publication on your own website with one script.</p>
+    <p>Paste an <strong>owner/repository</strong> to open a read-only publication, or embed the paginated version on your own site.</p>
     <div class="reader-callout__actions"><a class="button button--light" href="/read">Read a repository →</a><a class="text-link" href="/embed">Embed on your site ↗</a></div>
   </section>
   <section class="section section--split">
     <div>
-      <div class="section-head"><h2>Newest</h2><a class="text-link" href="/pages/newest">All newest →</a></div>
+      <div class="section-head"><h2>Newest</h2><a class="text-link" href="/pages/newest">Browse all →</a></div>
       ${newestList}
     </div>
     <div>
-      <div class="section-head"><h2>Recently updated</h2><a class="text-link" href="/pages/updated">All updates →</a></div>
+      <div class="section-head"><h2>Recently updated</h2><a class="text-link" href="/pages/updated">Browse updates →</a></div>
       ${updatedList}
     </div>
   </section>`;
@@ -466,7 +461,7 @@ export function embedBuilderPage(
   origin: string,
 ): string {
   const repoName = repository ? `${repository.owner}/${repository.repo}` : "owner/repository";
-  const accentAttribute = options.accent === "#d3aa36" ? "" : `\n  data-accent="${options.accent}"`;
+  const accentAttribute = options.accent === "#9d2f2a" ? "" : `\n  data-accent="${options.accent}"`;
   const labelAttribute = options.label ? `\n  data-label="${options.label}"` : "";
   const authorAttribute = options.author ? `\n  data-author="${options.author}"` : "";
   const variantAttribute = options.variant === "minimal" ? `\n  data-variant="minimal"` : "";

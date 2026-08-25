@@ -1,9 +1,9 @@
 /*
-THESIS — A repository becomes a continuous issue folio, not a miniature website.
-OWN-WORLD — Preserve Issue Dispatch: slate masthead, ivory sheets, gold issue markers.
-STORY — Scan the ledger, turn older/newer pages, open an issue, read, then return.
-FIRST VIEWPORT — Repository identity and the first issue rows must appear without ceremony.
-FORM — Rectilinear, compact, typographic, responsive; seed f64d9c8f candidate 7.
+THESIS — A repository stays a clean issue publication, not a miniature marketing site.
+OWN-WORLD — Indigo binding, chalk folios, oxblood issue numbers, one provenance seam.
+STORY — Scan numbered pages, paginate, open one, read comfortably, and return.
+FIRST VIEWPORT — Repository identity and the first real issue rows appear without ceremony.
+FORM — Common Thread reduced to a host-safe folio; the minimal variant remains neutral.
 */
 import type { EmbedOptions } from "../lib/embed";
 import { embedQuery } from "../lib/embed";

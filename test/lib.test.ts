@@ -95,7 +95,7 @@ describe("content primitives", () => {
     expect(parseEmbedOptions((name) => invalidValues.get(name))).toEqual({
       theme: "auto",
       density: "comfortable",
-      accent: "#d3aa36",
+      accent: "#9d2f2a",
       channel: "",
       label: "",
       author: "",

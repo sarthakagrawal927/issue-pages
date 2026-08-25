@@ -17,7 +17,7 @@ interface FilterableIssue {
   labels: Array<{ name: string }>;
 }
 
-const DEFAULT_ACCENT = "#d3aa36";
+const DEFAULT_ACCENT = "#9d2f2a";
 
 function hasControlCharacters(value: string): boolean {
   return [...value].some((character) => {

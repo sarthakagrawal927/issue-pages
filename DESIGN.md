@@ -1,100 +1,94 @@
 ---
 name: IssuePages
-description: A public dispatch system for pages published through GitHub issues.
+description: A public collection whose pages stay visibly joined to their GitHub issues.
 ---
-
-<!-- Implemented contract: quiet Live Board composition in the Issue Dispatch world. -->
 
 # Design System: IssuePages
 
-## Overview
+## Creative North Star
 
-**Creative North Star: "The Issue Dispatch"**
+**Common Thread** treats the repository as a shared field assembled by many
+authors. Every issue is a distinct typographic block; the seams between blocks
+carry provenance, updates, labels, and discussion. The system borrows the
+topology of a hand-pieced quilt, not literal fabric decoration.
 
-IssuePages behaves like a living public-information system: permanent numbers,
-fresh timestamps, visible status, and clear routes through a shared body of
-writing. Its character comes from pocket timetables and dispatch ledgers, but
-the metaphor serves publishing rather than travel. The world is vivid,
-structured, flat, and legible—not nostalgic decoration.
+The product must remain simpler than the reference world. It uses flat color,
+measured asymmetry, strong type, and one dashed seam rule. It does not simulate
+cloth, needles, patches, or handcraft in controls. The memorable product moment
+is seeing a numbered issue remain visibly connected to its public page.
 
-The reusable signature is the dispatch strip: a raked outer frame with a flat,
-unsheared content plane that carries issue number, author, labels, time, and
-state. Dense discovery surfaces can repeat these strips; article pages quiet
-the system into an ivory reading pane with dispatch metadata at the edges.
+## Composition
 
-**Key Characteristics:**
+The homepage is a calm Common Field, not a marketing hero followed by feature
+cards. The mechanism statement, publishing action, newest pages, and recently
+updated pages occupy unequal but connected regions in one shared composition.
+Real issue titles and authors provide the variation.
 
-- Goldenrod owns structural rails and issue-number cells rather than appearing
-  as scattered decoration.
-- Slate and carbon organize dense metadata; ivory protects long-form reading.
-- Vermilion means attention or archive; bottle green means safely published.
-- Issue numbers, timestamps, and state are structure, never ornamental filler.
-- Motion follows one lateral dispatch axis and stops under reduced motion.
+Article pages open a quiet chalk reading folio inside the indigo field. The
+title, issue number, author, dates, labels, source, and archive state sit on the
+bound edge; Markdown and discussion receive the largest uninterrupted area.
+Discovery, search, the repository reader, and the embed builder reuse the same
+binding, field, folio, and seam grammar without reproducing the homepage grid.
 
-## Colors
+On phones, the field becomes an ordered vertical sequence. The reading order is
+mechanism, publish action, newest pages, repository reader, and updates. No
+desktop patch may become a tiny tile merely to preserve the composition.
 
-Use a restrained full palette. Bible ivory (`#f1efe7` / `#fffdf4`) is the
-dominant public and reading surface; deep slate (`#2b3734`) carries the live
-board; carbon (`#171b1a`) carries type and controls; muted goldenrod (`#d3aa36`)
-carries the repository rail and permanent issue cells. Vermilion (`#a94732`)
-and bottle green (`#2f6a48`) communicate exceptional state in muted tints.
+## Color
 
-**The Status Ink Rule.** Vermilion and bottle green are reserved for meaningful
-state. They never become general decoration.
+The strategy is restrained full palette: indigo owns the shared public field;
+chalk owns reading and input surfaces; oxblood marks the action and active
+join; faded blue distinguishes secondary regions; near-black carries ink.
+
+- Field indigo: `#17324a`
+- Deep indigo: `#102637`
+- Chalk: `#f7f1e5`
+- Clean paper: `#fffdf8`
+- Oxblood: `#9d2f2a`
+- Faded blue: `#6f8798`
+- Ink: `#182028`
+- Muted ink: `#59636a`
+- Stitch gold: `#c89b3c`, reserved for focus and exceptional state
+
+Secondary text on a colored field is a tint of that field's foreground, never
+neutral gray. Oxblood is actionable or connective; it is not scattered accent.
 
 ## Typography
 
-The system uses a humanist native sans stack: Avenir Next or Avenir where
-available, then Segoe UI and the platform UI face. Width, weight, numbering,
-and rules carry the dispatch character; typography does not imitate industrial
-signage. Headings use 600–700 weights and body copy remains ordinary weight.
+UI and metadata use the platform monospaced face because issue numbers,
+repository names, dates, labels, and state are source notation. Headlines use
+the same face at ordinary widths and humane sizes; they do not imitate stamped
+or handwritten lettering. Long-form prose uses Charter or the closest durable
+reading serif available on the platform.
 
-Display type may be tall and forceful, but article prose never inherits its
-compression. Labels use uppercase sparingly for route and state, while titles
-and body copy use ordinary case.
+The body measure stays between 65 and 74 characters. Article type is never
+compressed to preserve the surrounding field. Uppercase appears only in short
+source/state labels, not as a universal section eyebrow.
 
-**The Two Speeds Rule.** Discovery scans fast in narrow labels; reading slows
-down in an open body face and a comfortable measure.
+## Components and States
 
-## Layout
+- A **block** is one meaningful region, not a generic card. Its size follows
+  content priority.
+- A **seam** is a 1px dashed boundary that indicates adjacency or provenance.
+  It is never used around every nested element.
+- A **binding** is a full-width indigo navigation or provenance band.
+- A **folio** is the clean article, form, or result surface.
+- The permanent issue number is the strongest compact identifier.
+- Published, archived, loading, stale, empty, and held states always include
+  text; color is supplementary.
+- Focus uses a gold outline with enough separation from both indigo and chalk.
 
-The homepage uses the approved Live Board composition: one direct mechanism
-statement and action beside a dark, raked board of current issue rows, followed
-by quiet newest and updated ledgers. Hierarchy comes from reversal, weight,
-rule, and field size rather than floating cards. Article pages retain the
-dispatch header and state rail, then settle into a bright reading pane capped
-at roughly 74 characters.
+Controls are rectilinear with small corner softening only where the browser
+control benefits. Hover changes color or underline weight; nothing lifts or
+bounces. Motion is limited to the existing article/discussion update behavior.
 
-At narrow widths, raked tables become stacked dispatch strips. Metadata wraps
-into named rows instead of shrinking. The primary action and search stay
-visible without sticky chrome consuming the reading viewport.
+## Avoid
 
-## Elevation & Depth
-
-The world is predominantly flat and printed. Depth comes from the inset dark
-board, hairline rules, a 3–4px goldenrod offset on primary moments, and one soft
-article-pane shadow. Translucent glass and ambient effects are outside the
-system.
-
-## Shapes
-
-Containers are rectilinear, clipped, and lightly raked. Inner text and controls
-remain level for legibility. Corners are square or minimally softened. State is
-marked in fixed cells, not floating pills.
-
-## Do's and Don'ts
-
-### Do:
-
-- **Do** make the issue number a first-class navigational anchor.
-- **Do** let goldenrod, slate, and ivory own whole regions.
-- **Do** separate dense dispatch metadata from generous reading typography.
-- **Do** preserve familiar semantic controls, focus order, and visible states.
-
-### Don't:
-
-- **Don't** introduce travel icons, airport codes, or airline copy.
-- **Don't** turn every content unit into a rounded floating card.
-- **Don't** use glassmorphism, gradients, neon glows, or soft luxury-editorial
-  styling.
-- **Don't** shrink type to preserve a desktop table on mobile.
+- Literal fabric photos, textile grain overlays, skeuomorphic stitches, or
+  decorative patch icons.
+- A giant slogan with an eyebrow, three-step explainer, showcase card, and
+  symmetric section stack.
+- Rounded card grids, pill collections, glass, gradients, glows, or fake
+  terminal chrome.
+- Monospace article prose or cramped metadata columns.
+- Making the embed fight its host page; the minimal embed remains host-neutral.
