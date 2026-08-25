@@ -8,7 +8,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "client:build": "esbuild src/client/mermaid.ts --bundle --format=esm --minify --outfile=public/assets/mermaid.js",
+    "client:build": "pnpm client:build:reader && pnpm client:build:mermaid && pnpm client:check",
+    "client:build:reader": "esbuild src/client/reader.ts --bundle --format=esm --minify --outfile=public/assets/reader.js",
+    "client:build:mermaid": "esbuild src/client/mermaid.ts --bundle --format=esm --splitting --minify --outdir=public/assets --entry-names=mermaid --chunk-names=chunks/[name]-[hash]",
+    "client:check": "node scripts/check-client-assets.mjs",
     "dev": "pnpm client:build && wrangler dev --port 8787",
     "types": "wrangler types ./worker-configuration.d.ts",
     "types:check": "wrangler types ./worker-configuration.d.ts --check",

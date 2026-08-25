@@ -38,7 +38,7 @@ unauthenticated GitHub REST
           ↓ bounded JSON + GitHub HTML
  tiered fetch cache → sanitize
           ↓
-ten-minute local cache + last-safe cache
+10m fresh → 1h background refresh → last-safe cache
           ↓
 noindex repository and issue pages
 ```
@@ -52,12 +52,17 @@ Arbitrary repositories never enter D1, moderation, search, discovery, author
 pages, label pages, or the sitemap. Reader calls always use the fixed GitHub API
 origin without credentials, apply explicit payload/time limits, reject pull
 requests, and serve a dated last-safe copy only for transient failures. A
-definitive missing/private response never falls back to stale content.
+definitive missing/private response purges any previously safe cached copy.
 
 Successful GitHub subrequests use Cloudflare's tiered `fetch` cache for ten
 minutes. Repository indexes request the compact JSON representation; rendered
-HTML is requested only for issue bodies and comments. Cold issue and comment
-requests run concurrently, and the upstream timeout is four seconds.
+HTML is requested only for issue bodies and comments. After the ten-minute
+fresh window, a safe copy up to one hour old is returned immediately while an
+ETag refresh runs through `waitUntil`; older safe copies are used only when a
+synchronous refresh fails transiently. Issue bodies render before comments,
+which arrive through a same-origin sanitized fragment with a bounded retry
+state. Zero-comment issues skip that request entirely. The upstream timeout is
+four seconds.
 
 ## Local development
 
@@ -85,8 +90,9 @@ pnpm startup
 plain-text extraction and a safe local fallback for moderation previews. Safe
 revisions are rendered with GitHub's official repository-aware Markdown API,
 then parsed and allowlisted with the `hast-util` HTML utilities. KaTeX emits
-server-side MathML. Mermaid is a self-hosted browser module loaded only when an
-article contains a bounded Mermaid block. The OpenAI and GitHub APIs are called
+server-side MathML. Mermaid is a self-hosted, diagram-split browser module
+loaded only when an article or deferred discussion contains a bounded Mermaid
+block. The OpenAI and GitHub APIs are called
 with plain `fetch`, avoiding runtime SDK dependencies.
 
 ## Moderation modes

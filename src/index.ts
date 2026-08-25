@@ -14,6 +14,7 @@ import { decodeCursor, encodeCursor, type CursorPayload } from "./lib/cursor";
 import {
   decodeReaderCursor,
   getPublicIssue,
+  getPublicIssueDiscussion,
   GitHubReaderError,
   listPublicIssues,
   parsePublicRepository,
@@ -28,6 +29,7 @@ import {
   layout,
   listingPage,
   publicIssueReaderPage,
+  publicDiscussionFragment,
   readerErrorPage,
   readerFormPage,
   repositoryReaderPage,
@@ -80,7 +82,10 @@ function html(c: Context<AppEnv>, title: string, body: string): Response {
   return response;
 }
 
-function readerHeaders(response: Response, cacheState?: "FRESH" | "STALE"): Response {
+function readerHeaders(
+  response: Response,
+  cacheState?: "FRESH" | "REFRESHING" | "STALE",
+): Response {
   const headers = new Headers(response.headers);
   headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   if (cacheState) headers.set("X-IssuePages-Reader-Cache", cacheState);
@@ -105,13 +110,20 @@ function readerHtml(
   c: Context<AppEnv>,
   title: string,
   body: string,
-  options: { status?: 200 | 400 | 404 | 429 | 503; mermaid?: boolean; stale?: boolean } = {},
+  options: {
+    status?: 200 | 400 | 404 | 429 | 503;
+    mermaid?: boolean;
+    readerClient?: boolean;
+    refreshing?: boolean;
+    stale?: boolean;
+  } = {},
 ): Response {
   const status = options.status ?? 200;
   const response = c.html(
     layout(siteIdentity(c.env), title, body, {
       description: "Read public GitHub issues as clean, read-only pages.",
       reader: true,
+      ...(options.readerClient === undefined ? {} : { readerClient: options.readerClient }),
       robots: true,
       ...(options.mermaid === undefined ? {} : { mermaid: options.mermaid }),
     }),
@@ -123,7 +135,16 @@ function readerHtml(
           : "no-store",
     },
   );
-  return readerHeaders(response, status === 200 ? (options.stale ? "STALE" : "FRESH") : undefined);
+  return readerHeaders(
+    response,
+    status === 200
+      ? options.stale
+        ? "STALE"
+        : options.refreshing
+          ? "REFRESHING"
+          : "FRESH"
+      : undefined,
+  );
 }
 
 function readerError(c: Context<AppEnv>, error: unknown): Response {
@@ -309,6 +330,8 @@ async function readerRepository(c: Context<AppEnv>): Promise<Response> {
       ctx: c.executionCtx,
     });
     return readerHtml(c, `${repository.owner}/${repository.repo}`, repositoryReaderPage(result), {
+      readerClient: true,
+      refreshing: result.refreshing,
       stale: result.stale,
     });
   } catch (error) {
@@ -352,10 +375,10 @@ async function readerIssue(c: Context<AppEnv>, redirectShort: boolean): Promise<
     if (redirectShort || c.req.param("slug") !== result.issue.slug) {
       return readerHeaders(c.redirect(canonical, 308));
     }
-    const hasMermaid =
-      result.issue.hasMermaid || result.comments.some((comment) => comment.hasMermaid);
     return readerHtml(c, result.issue.title, publicIssueReaderPage(result), {
-      mermaid: hasMermaid,
+      mermaid: result.issue.hasMermaid,
+      readerClient: true,
+      refreshing: result.refreshing,
       stale: result.stale,
     });
   } catch (error) {
@@ -364,6 +387,49 @@ async function readerIssue(c: Context<AppEnv>, redirectShort: boolean): Promise<
 }
 
 app.get("/github/:owner/:repo/issues/:number", (c) => readerIssue(c, true));
+
+async function readerDiscussion(c: Context<AppEnv>): Promise<Response> {
+  if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "reader-discussion"))) {
+    const response = c.body(null, 429, {
+      "Cache-Control": "no-store",
+      "Retry-After": "60",
+    });
+    return readerHeaders(response);
+  }
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  const issueNumber = Number(c.req.param("number"));
+  if (!repository || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
+    return readerHeaders(c.body(null, 404, { "Cache-Control": "no-store" }));
+  }
+  try {
+    const result = await getPublicIssueDiscussion({
+      repository,
+      issueNumber,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    const githubIssueUrl = `https://github.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/issues/${issueNumber}`;
+    const response = c.html(publicDiscussionFragment(result, githubIssueUrl), 200, {
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400",
+    });
+    return readerHeaders(
+      response,
+      result.stale ? "STALE" : result.refreshing ? "REFRESHING" : "FRESH",
+    );
+  } catch (error) {
+    if (error instanceof GitHubReaderError) {
+      const status = error.code === "not_found" ? 404 : 503;
+      const response = c.body(null, status, {
+        "Cache-Control": "no-store",
+        ...(status === 503 ? { "Retry-After": "60" } : {}),
+      });
+      return readerHeaders(response);
+    }
+    throw error;
+  }
+}
+
+app.get("/github/:owner/:repo/issues/:number/discussion", readerDiscussion);
 app.get("/github/:owner/:repo/issues/:number/:slug", (c) => readerIssue(c, false));
 
 async function renderListing(c: Context<AppEnv>, sort: "newest" | "updated"): Promise<Response> {

@@ -94,7 +94,23 @@
     },
     "detector": {
       "posture": "advisory",
-      "findings": []
+      "findings": [
+        {
+          "antipattern": "side-tab",
+          "severity": "warning",
+          "file": "src/ui/assets.ts",
+          "line": 115,
+          "disposition": "accepted-existing",
+          "note": "The flagged border is the established GitHub alert treatment, not a new card accent."
+        }
+      ]
+    },
+    "latestPass": {
+      "date": "2026-08-25",
+      "lane": "preserve",
+      "surface": "progressive universal-reader discussion",
+      "browserEvidence": "blocked-no-available-browser",
+      "httpEvidence": "Local article and deferred discussion paths passed independently; existing responsive baseline remains unchanged."
     }
   },
   "ownerFeedback": {

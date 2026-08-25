@@ -44,10 +44,14 @@ newest, recently updated, random, and search views on the website.
 - One indexed, webhook-driven public publishing repository only.
 - Any public repository may be opened in the universal reader without
   installation. Those routes use bounded unauthenticated GitHub reads and a
-  ten-minute tiered fetch cache plus a local last-safe cache; they never enter
-  D1, moderation, feeds, search, or sitemaps.
+  ten-minute tiered fetch cache, a bounded one-hour background-refresh window,
+  and a local last-safe cache; they never enter D1, moderation, feeds, search,
+  or sitemaps.
 - Universal-reader routes are noindex and exclude pull requests. Editing,
   reacting, and commenting remain on GitHub.
+- Universal-reader issue bodies must not wait for comments. Discussions load
+  from a same-origin sanitized fragment, reserve their layout while loading,
+  offer retry/GitHub recovery, and make no request when the issue has no replies.
 - GitHub issue number is the durable page identifier; title slugs may change.
 - Normal site traffic must use Cloudflare D1 and Cache without calling GitHub.
 - Every user-content change must pass sanitization, spam checks, and OpenAI
@@ -58,13 +62,15 @@ newest, recently updated, random, and search views on the website.
 - Safe issue and comment Markdown is rendered with GitHub repository context at
   ingestion time, normalized locally, and served without GitHub reader calls.
 - Common GitHub formatting, math, and bounded Mermaid are rendered directly;
-  complex map/3D formats keep an accessible source fallback and GitHub link.
+  Mermaid implementations load by diagram type, while complex map/3D formats
+  keep an accessible source fallback and GitHub link.
 - Flagged revisions wait for review and cannot replace known-good public
   content.
 - Maintainer product issues use the reserved `internal` label and never publish.
 - Lists and search use cursor pagination; search is lexical D1 FTS5.
-- Near-real-time article refresh uses lightweight visible-tab polling, not
-  WebSockets or Durable Objects.
+- Near-real-time article refresh uses lightweight visible-tab polling that
+  backs off from 15 to 30 to 60 seconds while unchanged, not WebSockets or
+  Durable Objects.
 - GitHub repository webhooks do not emit a standalone reaction event. The MVP
   needs token-backed scheduled reconciliation before reaction-only changes can
   meet the automatic-update promise.

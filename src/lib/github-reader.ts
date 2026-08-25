@@ -6,6 +6,7 @@ const API_VERSION = "2022-11-28";
 const GITHUB_JSON_MEDIA = "application/vnd.github+json";
 const GITHUB_FULL_MEDIA = "application/vnd.github.full+json";
 const FRESH_TTL_SECONDS = 600;
+const SOFT_STALE_TTL_SECONDS = 3_600;
 const STALE_TTL_SECONDS = 604_800;
 const UPSTREAM_TIMEOUT_MS = 4_000;
 const MAX_RESPONSE_BYTES = 2_000_000;
@@ -15,6 +16,7 @@ const CACHE_SCHEMA = 1;
 
 export const GITHUB_READER_POLICY = Object.freeze({
   freshTtlSeconds: FRESH_TTL_SECONDS,
+  softStaleTtlSeconds: SOFT_STALE_TTL_SECONDS,
   staleTtlSeconds: STALE_TTL_SECONDS,
   timeoutMs: UPSTREAM_TIMEOUT_MS,
   listPageSize: LIST_PAGE_SIZE,
@@ -75,6 +77,7 @@ export interface PublicComment {
 
 export interface ReaderFreshness {
   stale: boolean;
+  refreshing: boolean;
   cachedAt: string;
 }
 
@@ -88,9 +91,13 @@ export interface PublicIssueList extends ReaderFreshness {
 export interface PublicIssuePage extends ReaderFreshness {
   repository: PublicRepository;
   issue: PublicIssue;
+}
+
+export interface PublicIssueDiscussion extends ReaderFreshness {
+  repository: PublicRepository;
+  issueNumber: number;
   comments: PublicComment[];
   commentsTruncated: boolean;
-  commentsUnavailable: boolean;
 }
 
 interface CacheEnvelope<T> {
@@ -338,18 +345,18 @@ function cacheResponse<T>(value: CacheEnvelope<T>, ttl: number): Response {
   });
 }
 
-function writeCached<T>(
-  ctx: ReaderExecutionContext,
-  origin: string,
-  key: string,
-  value: CacheEnvelope<T>,
-): void {
-  ctx.waitUntil(
-    Promise.all([
-      caches.default.put(cacheKey(origin, "fresh", key), cacheResponse(value, FRESH_TTL_SECONDS)),
-      caches.default.put(cacheKey(origin, "stale", key), cacheResponse(value, STALE_TTL_SECONDS)),
-    ]).then(() => undefined),
-  );
+function writeCached<T>(origin: string, key: string, value: CacheEnvelope<T>): Promise<void> {
+  return Promise.all([
+    caches.default.put(cacheKey(origin, "fresh", key), cacheResponse(value, FRESH_TTL_SECONDS)),
+    caches.default.put(cacheKey(origin, "stale", key), cacheResponse(value, STALE_TTL_SECONDS)),
+  ]).then(() => undefined);
+}
+
+function deleteCached(origin: string, key: string): Promise<void> {
+  return Promise.all([
+    caches.default.delete(cacheKey(origin, "fresh", key)),
+    caches.default.delete(cacheKey(origin, "stale", key)),
+  ]).then(() => undefined);
 }
 
 async function readResponseText(response: Response): Promise<string> {
@@ -426,47 +433,91 @@ async function cachedGitHubRead<T>(options: {
   const freshKey = cacheKey(options.origin, "fresh", options.key);
   const staleKey = cacheKey(options.origin, "stale", options.key);
   const fresh = await readCached(freshKey, options.validate);
-  if (fresh) return { value: fresh.value, freshness: { stale: false, cachedAt: fresh.storedAt } };
+  if (fresh) {
+    return {
+      value: fresh.value,
+      freshness: { stale: false, refreshing: false, cachedAt: fresh.storedAt },
+    };
+  }
   const staleCandidate = await readCached(staleKey, options.validate);
   const stale =
     staleCandidate && Date.now() - Date.parse(staleCandidate.storedAt) <= STALE_TTL_SECONDS * 1_000
       ? staleCandidate
       : null;
-  try {
-    const response = await githubRequest(options.path, stale?.etag ?? null, options.mediaType);
-    if (response.status === 304 && stale) {
-      const refreshed = { ...stale, storedAt: new Date().toISOString() };
-      writeCached(options.ctx, options.origin, options.key, refreshed);
-      return {
-        value: refreshed.value,
-        freshness: { stale: false, cachedAt: refreshed.storedAt },
-      };
-    }
-    if (!response.ok) throw mapGitHubFailure(response);
-    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!contentType.includes("application/json")) {
-      throw new GitHubReaderError(503, "unavailable");
-    }
-    const payloadText = await readResponseText(response);
-    let payload: unknown;
+
+  const refresh = async (): Promise<CachedResult<T>> => {
     try {
-      payload = JSON.parse(payloadText);
-    } catch {
-      throw new GitHubReaderError(503, "unavailable");
+      const response = await githubRequest(options.path, stale?.etag ?? null, options.mediaType);
+      if (response.status === 304 && stale) {
+        const refreshed = { ...stale, storedAt: new Date().toISOString() };
+        options.ctx.waitUntil(writeCached(options.origin, options.key, refreshed));
+        return {
+          value: refreshed.value,
+          freshness: { stale: false, refreshing: false, cachedAt: refreshed.storedAt },
+        };
+      }
+      if (!response.ok) throw mapGitHubFailure(response);
+      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new GitHubReaderError(503, "unavailable");
+      }
+      const payloadText = await readResponseText(response);
+      let payload: unknown;
+      try {
+        payload = JSON.parse(payloadText);
+      } catch {
+        throw new GitHubReaderError(503, "unavailable");
+      }
+      const value = options.transform(payload, response);
+      const envelope: CacheEnvelope<T> = {
+        version: 1,
+        storedAt: new Date().toISOString(),
+        etag: response.headers.get("etag"),
+        value,
+      };
+      options.ctx.waitUntil(writeCached(options.origin, options.key, envelope));
+      return {
+        value,
+        freshness: { stale: false, refreshing: false, cachedAt: envelope.storedAt },
+      };
+    } catch (error) {
+      if (error instanceof GitHubReaderError && error.code === "not_found") {
+        options.ctx.waitUntil(deleteCached(options.origin, options.key));
+      }
+      throw error;
     }
-    const value = options.transform(payload, response);
-    const envelope: CacheEnvelope<T> = {
-      version: 1,
-      storedAt: new Date().toISOString(),
-      etag: response.headers.get("etag"),
-      value,
+  };
+
+  const staleAge = stale ? Date.now() - Date.parse(stale.storedAt) : Number.POSITIVE_INFINITY;
+  if (stale && staleAge <= SOFT_STALE_TTL_SECONDS * 1_000) {
+    options.ctx.waitUntil(
+      refresh().catch((error) => {
+        if (!(error instanceof GitHubReaderError && error.code === "not_found")) {
+          console.error(
+            JSON.stringify({
+              event: "github_reader_background_refresh_failed",
+              key: options.key,
+              error: error instanceof Error ? error.message : "unknown",
+            }),
+          );
+        }
+      }),
+    );
+    return {
+      value: stale.value,
+      freshness: { stale: false, refreshing: true, cachedAt: stale.storedAt },
     };
-    writeCached(options.ctx, options.origin, options.key, envelope);
-    return { value, freshness: { stale: false, cachedAt: envelope.storedAt } };
+  }
+
+  try {
+    return await refresh();
   } catch (error) {
     if (error instanceof GitHubReaderError && error.code === "not_found") throw error;
     if (stale) {
-      return { value: stale.value, freshness: { stale: true, cachedAt: stale.storedAt } };
+      return {
+        value: stale.value,
+        freshness: { stale: true, refreshing: false, cachedAt: stale.storedAt },
+      };
     }
     console.error(
       JSON.stringify({
@@ -561,7 +612,7 @@ export async function getPublicIssue(options: {
   ctx: ReaderExecutionContext;
 }): Promise<PublicIssuePage> {
   const base = apiRepositoryPath(options.repository);
-  const issuePromise = cachedGitHubRead({
+  const result = await cachedGitHubRead({
     origin: options.origin,
     key: `issue:${options.repository.owner}/${options.repository.repo}:${options.issueNumber}`,
     path: `${base}/issues/${options.issueNumber}`,
@@ -574,7 +625,21 @@ export async function getPublicIssue(options: {
       return issue;
     },
   });
-  const commentsPromise = cachedGitHubRead({
+  return {
+    repository: options.repository,
+    issue: result.value,
+    ...result.freshness,
+  };
+}
+
+export async function getPublicIssueDiscussion(options: {
+  repository: PublicRepository;
+  issueNumber: number;
+  origin: string;
+  ctx: ReaderExecutionContext;
+}): Promise<PublicIssueDiscussion> {
+  const base = apiRepositoryPath(options.repository);
+  const result = await cachedGitHubRead({
     origin: options.origin,
     key: `comments:${options.repository.owner}/${options.repository.repo}:${options.issueNumber}`,
     path: `${base}/issues/${options.issueNumber}/comments?per_page=${COMMENT_LIMIT}&page=1`,
@@ -592,28 +657,11 @@ export async function getPublicIssue(options: {
       };
     },
   });
-  const [issueSettled, commentsSettled] = await Promise.allSettled([issuePromise, commentsPromise]);
-  if (issueSettled.status === "rejected") throw issueSettled.reason;
-  const issueResult = issueSettled.value;
-  let commentsResult: CachedResult<{ comments: PublicComment[]; next: boolean }> | null = null;
-  if (commentsSettled.status === "fulfilled") {
-    commentsResult = commentsSettled.value;
-  } else if (
-    commentsSettled.reason instanceof GitHubReaderError &&
-    commentsSettled.reason.code === "not_found"
-  ) {
-    throw commentsSettled.reason;
-  }
   return {
     repository: options.repository,
-    issue: issueResult.value,
-    comments: commentsResult?.value.comments ?? [],
-    commentsTruncated: commentsResult?.value.next ?? false,
-    commentsUnavailable: commentsResult === null,
-    stale: issueResult.freshness.stale || Boolean(commentsResult?.freshness.stale),
-    cachedAt:
-      commentsResult && issueResult.freshness.cachedAt > commentsResult.freshness.cachedAt
-        ? commentsResult.freshness.cachedAt
-        : issueResult.freshness.cachedAt,
+    issueNumber: options.issueNumber,
+    comments: result.value.comments,
+    commentsTruncated: result.value.next,
+    ...result.freshness,
   };
 }

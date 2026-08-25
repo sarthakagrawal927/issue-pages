@@ -8,9 +8,6 @@ const readerRequests: Array<{
   redirect: string | undefined;
   cf: RequestInitCfProperties | undefined;
 }> = [];
-const concurrentReaderStarts = new Set<"issue" | "comments">();
-let concurrentReaderGate: Promise<void> | null = null;
-let releaseConcurrentReaderGate: (() => void) | null = null;
 
 function publicIssue(number = 7, pullRequest = false): Record<string, unknown> {
   return {
@@ -56,7 +53,7 @@ function publicComment(): Record<string, unknown> {
   };
 }
 
-async function seedStaleReaderIssue(repository: string): Promise<void> {
+async function seedStaleReaderIssue(repository: string, ageMs = 0): Promise<void> {
   const key = encodeURIComponent(`issue:acme/${repository}:7`);
   const request = new Request(new URL(`/__cache/github-reader/v1/stale/${key}`, env.PUBLIC_ORIGIN));
   await caches.default.put(
@@ -64,7 +61,7 @@ async function seedStaleReaderIssue(repository: string): Promise<void> {
     Response.json(
       {
         version: 1,
-        storedAt: new Date().toISOString(),
+        storedAt: new Date(Date.now() - ageMs).toISOString(),
         etag: '"issue-etag"',
         value: {
           number: 7,
@@ -174,10 +171,6 @@ beforeAll(() => {
         redirect: init?.redirect,
         cf: init?.cf,
       });
-      if (url.pathname.includes("/concurrent/")) {
-        concurrentReaderStarts.add(url.pathname.endsWith("/comments") ? "comments" : "issue");
-        if (concurrentReaderGate) await concurrentReaderGate;
-      }
       if (
         url.pathname.includes("/not-modified/") &&
         headers.get("if-none-match") === '"issue-etag"'
@@ -220,7 +213,9 @@ beforeAll(() => {
       }
       if (/\/issues\/\d+$/.test(url.pathname)) {
         const number = Number(url.pathname.split("/").at(-1));
-        return Response.json(publicIssue(number, number === 8), {
+        const issue = publicIssue(number, number === 8);
+        if (url.pathname.includes("/no-comments/")) issue.comments = 0;
+        return Response.json(issue, {
           headers: { etag: '"issue-v1"' },
         });
       }
@@ -334,7 +329,7 @@ describe("public Worker routes", () => {
     );
   });
 
-  it("renders a sanitized issue and bounded comment discussion", async () => {
+  it("renders a sanitized issue before loading its bounded discussion", async () => {
     const short = await exports.default.fetch(
       new Request("http://localhost:8787/github/acme/notes/issues/7", { redirect: "manual" }),
     );
@@ -348,13 +343,26 @@ describe("public Worker routes", () => {
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(body).toContain("Reader <strong>body</strong>");
-    expect(body).toContain("A <em>reply</em>");
-    expect(body).toContain("Showing the first 1 comments");
-    expect(body).not.toContain("<script");
+    expect(body).toContain("Loading the discussion");
+    expect(body).toContain('data-source="/github/acme/notes/issues/7/discussion"');
+    expect(body).not.toContain("A <em>reply</em>");
     expect(body).not.toContain("javascript:");
     const issueOutbound = readerRequests.find((entry) =>
       entry.url.endsWith("/repos/acme/notes/issues/7"),
     );
+    expect(
+      readerRequests.some((entry) => entry.url.includes("/repos/acme/notes/issues/7/comments?")),
+    ).toBe(false);
+
+    const discussionResponse = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/notes/issues/7/discussion"),
+    );
+    expect(discussionResponse.status).toBe(200);
+    const discussion = await discussionResponse.text();
+    expect(discussion).toContain("A <em>reply</em>");
+    expect(discussion).toContain("Showing the first 1 comments");
+    expect(discussion).not.toContain("<script");
+    expect(discussion).not.toContain("javascript:");
     const commentsOutbound = readerRequests.find((entry) =>
       entry.url.includes("/repos/acme/notes/issues/7/comments?"),
     );
@@ -362,22 +370,20 @@ describe("public Worker routes", () => {
     expect(commentsOutbound?.headers.get("accept")).toBe("application/vnd.github.full+json");
   });
 
-  it("starts issue and comment hydration concurrently", async () => {
-    concurrentReaderStarts.clear();
-    concurrentReaderGate = new Promise<void>((resolve) => {
-      releaseConcurrentReaderGate = resolve;
-    });
-    const responsePromise = exports.default.fetch(
-      new Request("http://localhost:8787/github/acme/concurrent/issues/7/a-public-reader-issue"),
+  it("does not request discussion data for an issue with zero replies", async () => {
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/no-comments/issues/7/a-public-reader-issue"),
     );
-    await vi.waitFor(() => {
-      expect(concurrentReaderStarts).toEqual(new Set(["issue", "comments"]));
-    });
-    releaseConcurrentReaderGate?.();
-    const response = await responsePromise;
-    concurrentReaderGate = null;
-    releaseConcurrentReaderGate = null;
     expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("No replies yet");
+    expect(body).not.toContain("data-reader-discussion");
+    expect(
+      readerRequests.some(
+        (entry) =>
+          entry.url.includes("/repos/acme/no-comments/") && entry.url.includes("/comments"),
+      ),
+    ).toBe(false);
   });
 
   it("rejects direct pull-request issue paths", async () => {
@@ -408,7 +414,11 @@ describe("public Worker routes", () => {
       new Request("http://localhost:8787/github/acme/comments-down/issues/7/a-public-reader-issue"),
     );
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain("Discussion is temporarily unavailable");
+    expect(await response.text()).toContain("Loading the discussion");
+    const discussion = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/comments-down/issues/7/discussion"),
+    );
+    expect(discussion.status).toBe(503);
   });
 
   it("keeps all-pull-request result pages navigable", async () => {
@@ -422,7 +432,7 @@ describe("public Worker routes", () => {
   });
 
   it("serves the last safe issue on a transient GitHub limit", async () => {
-    await seedStaleReaderIssue("stale-repo");
+    await seedStaleReaderIssue("stale-repo", 2 * 60 * 60 * 1_000);
     const response = await exports.default.fetch(
       new Request("http://localhost:8787/github/acme/stale-repo/issues/7/a-cached-public-issue"),
     );
@@ -439,7 +449,7 @@ describe("public Worker routes", () => {
       new Request("http://localhost:8787/github/acme/not-modified/issues/7/a-cached-public-issue"),
     );
     expect(response.status).toBe(200);
-    expect(response.headers.get("x-issuepages-reader-cache")).toBe("FRESH");
+    expect(response.headers.get("x-issuepages-reader-cache")).toBe("REFRESHING");
     expect(
       readerRequests.some(
         (entry) =>
@@ -447,10 +457,28 @@ describe("public Worker routes", () => {
           entry.headers.get("if-none-match") === '"issue-etag"',
       ),
     ).toBe(true);
+    const refreshed = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/not-modified/issues/7/a-cached-public-issue"),
+    );
+    expect(refreshed.headers.get("x-issuepages-reader-cache")).toBe("FRESH");
+  });
+
+  it("drops a soft-stale copy after a definitive GitHub absence", async () => {
+    await seedStaleReaderIssue("private-repo");
+    const immediate = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/private-repo/issues/7/a-cached-public-issue"),
+    );
+    expect(immediate.status).toBe(200);
+    expect(immediate.headers.get("x-issuepages-reader-cache")).toBe("REFRESHING");
+
+    const afterRefresh = await exports.default.fetch(
+      new Request("http://localhost:8787/github/acme/private-repo/issues/7/a-cached-public-issue"),
+    );
+    expect(afterRefresh.status).toBe(404);
   });
 
   it("does not serve a stale copy after GitHub says the issue is unavailable", async () => {
-    await seedStaleReaderIssue("missing");
+    await seedStaleReaderIssue("missing", 2 * 60 * 60 * 1_000);
     const response = await exports.default.fetch(
       new Request("http://localhost:8787/github/acme/missing/issues/7/a-cached-public-issue"),
     );

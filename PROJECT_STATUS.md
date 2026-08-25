@@ -46,6 +46,9 @@ domains, multiple publishing repositories, and cross-repository discovery.
 - 2026-08-25 — universal public-repository issue reader implemented and released
 - 2026-08-25 — universal-reader hot path shortened with tiered fetch caching,
   compact indexes, concurrent article hydration, and a four-second failure bound
+- 2026-08-25 — second performance pass separated issue and discussion delivery,
+  added bounded stale-while-revalidate, intent prefetching, adaptive polling,
+  and diagram-split Mermaid delivery
 
 ## Products
 
@@ -72,8 +75,10 @@ domains, multiple publishing repositories, and cross-repository discovery.
 - Worker integration tests, local migration verification, and dry-run bundle
 - Universal `/read` and `/github/...` routes with strict repository parsing,
   unauthenticated bounded GitHub reads, pull-request exclusion, sanitized rich
-  issue/comment rendering, opaque pagination, ten-minute tiered fetch and local
-  caching, ETag revalidation, safe stale fallback, and universal noindex directives
+  issue/comment rendering, progressive same-origin discussions, intent
+  prefetching, opaque pagination, ten-minute fresh caching, bounded background
+  ETag revalidation, safe stale fallback, and universal noindex directives
+- Adaptive 15/30/60-second article polling and diagram-type Mermaid chunks
 
 ## Todo / Planned / Deferred / Blocked
 

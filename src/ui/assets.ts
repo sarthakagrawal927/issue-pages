@@ -145,6 +145,12 @@ main { min-height: 70vh; }
 .archive-notice { border: 1px solid #b87969; background: #f1ded8; color: #712c20; padding: .75rem 1rem; margin-bottom: 1rem; font-weight: 700; }
 .discussion { margin-top: 4rem; }
 .discussion h2 { font: 700 1.85rem/1.1 var(--display); border-bottom: 1px solid var(--ink); }
+.discussion-content--loading { min-height: 8rem; }
+.discussion-loading { min-height: 8rem; display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: .86rem; }
+.discussion-loading > span:first-child { color: var(--gold); font: 800 1.25rem/1 var(--display); animation: discussion-pulse 1.2s ease-in-out infinite alternate; }
+.discussion-loading strong { color: var(--ink); }
+.text-button { min-height: 44px; border: 0; padding: 0 .25rem; background: transparent; color: var(--blue); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: .14em; }
+@keyframes discussion-pulse { from { transform: translateX(0); } to { transform: translateX(.35rem); } }
 .comment { display: grid; grid-template-columns: 3rem minmax(0,1fr); gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--rule); }
 .avatar { width: 3rem; height: 3rem; border-radius: 50%; background: #ddd; }
 .comment__meta { color: var(--muted); font-size: .8rem; }
@@ -258,6 +264,7 @@ mark { background: var(--gold-soft); color: var(--ink); padding-inline: .08em; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .button { transition: none; }
+  .discussion-loading > span:first-child { animation: none; }
 }
 `;
 
@@ -268,6 +275,11 @@ export const articlePollingScript = `
   const issue = root.getAttribute("data-article-issue");
   let version = Number(root.getAttribute("data-article-version"));
   let timer;
+  let delay = 15000;
+  const schedule = () => {
+    clearTimeout(timer);
+    if (document.visibilityState === "visible") timer = setTimeout(poll, delay);
+  };
   const poll = async () => {
     if (document.visibilityState !== "visible") return;
     try {
@@ -275,17 +287,24 @@ export const articlePollingScript = `
         headers: { Accept: "application/json" },
         cache: "no-store"
       });
-      if (!response.ok) return;
-      const payload = await response.json();
-      if (typeof payload.revision === "number" && payload.revision > version) {
-        version = payload.revision;
-        window.location.reload();
+      if (response.ok) {
+        const payload = await response.json();
+        if (typeof payload.revision === "number" && payload.revision > version) {
+          version = payload.revision;
+          window.location.reload();
+          return;
+        }
       }
     } catch (_) {}
+    delay = Math.min(delay * 2, 60000);
+    schedule();
   };
   const start = () => {
-    clearInterval(timer);
-    if (document.visibilityState === "visible") timer = setInterval(poll, 15000);
+    clearTimeout(timer);
+    if (document.visibilityState === "visible") {
+      delay = 15000;
+      schedule();
+    }
   };
   document.addEventListener("visibilitychange", start);
   start();

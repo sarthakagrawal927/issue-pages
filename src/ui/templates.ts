@@ -1,6 +1,7 @@
 import type { SearchRow } from "../data/repository";
 import type {
   PublicComment,
+  PublicIssueDiscussion,
   PublicIssueList,
   PublicIssuePage,
   PublicIssueSummary,
@@ -145,6 +146,7 @@ export function layout(
     mermaid?: boolean;
     polling?: boolean;
     reader?: boolean;
+    readerClient?: boolean;
     robots?: boolean;
   } = {},
 ): string {
@@ -163,7 +165,8 @@ export function layout(
   <title>${escapeHtml(pageTitle)}</title>
   <link rel="stylesheet" href="/styles.css?v=20260825-6">
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
-  ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-1"></script>' : ""}
+  ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260825-1"></script>' : ""}
+  ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -512,11 +515,13 @@ export function publicIssueReaderPage(result: PublicIssuePage): string {
   const archived = issue.state === "closed";
   const repoHref = readerRepositoryHref(repository);
   const authorUrl = safeHttpsUrl(issue.author.githubUrl) ?? "https://github.com";
-  const discussion = result.commentsUnavailable
-    ? '<div class="empty-state"><strong>Discussion is temporarily unavailable.</strong><br>The issue is still readable; open GitHub for the canonical conversation.</div>'
-    : result.comments.length
-      ? result.comments.map(publicCommentView).join("")
-      : '<div class="empty-state">No replies yet. Discussion stays on the original GitHub issue.</div>';
+  const discussionHref = `${repoHref}/issues/${issue.number}/discussion`;
+  const discussion =
+    issue.commentCount === 0
+      ? '<div class="empty-state">No replies yet. Discussion stays on the original GitHub issue.</div>'
+      : `<div class="discussion-content discussion-content--loading" data-reader-discussion data-source="${discussionHref}" data-github-source="${escapeHtml(issue.githubUrl)}" aria-live="polite" aria-busy="true">
+          <div class="discussion-loading" role="status"><span aria-hidden="true">↳</span><span><strong>Loading the discussion</strong><br>Article reading is ready now.</span></div>
+        </div>`;
   return `<div class="page-shell reader-page">
     <aside class="page-rail" aria-label="Issue details">
       <p class="eyebrow">${escapeHtml(repository.owner)}/${escapeHtml(repository.repo)} · Issue #${issue.number}</p>
@@ -544,7 +549,6 @@ export function publicIssueReaderPage(result: PublicIssuePage): string {
       <section class="discussion" aria-labelledby="discussion-title">
         <h2 id="discussion-title">Discussion <span>${issue.commentCount}</span></h2>
         ${discussion}
-        ${result.commentsTruncated ? `<p class="reader-notice"><strong>Showing the first ${result.comments.length} comments.</strong> <a href="${escapeHtml(issue.githubUrl)}" rel="external">Continue on GitHub ↗</a></p>` : ""}
       </section>
       <nav class="onward onward--reader" aria-label="Keep reading">
         <h2>Keep reading</h2>
@@ -554,6 +558,20 @@ export function publicIssueReaderPage(result: PublicIssuePage): string {
       </nav>
     </article>
   </div>`;
+}
+
+export function publicDiscussionFragment(
+  result: PublicIssueDiscussion,
+  githubIssueUrl: string,
+): string {
+  const comments = result.comments.length
+    ? result.comments.map(publicCommentView).join("")
+    : '<div class="empty-state">No replies are currently visible. Discussion stays on the original GitHub issue.</div>';
+  return `${freshnessNotice(result.stale, result.cachedAt)}${comments}${
+    result.commentsTruncated
+      ? `<p class="reader-notice"><strong>Showing the first ${result.comments.length} comments.</strong> <a href="${escapeHtml(githubIssueUrl)}" rel="external">Continue on GitHub ↗</a></p>`
+      : ""
+  }`;
 }
 
 export function readerErrorPage(

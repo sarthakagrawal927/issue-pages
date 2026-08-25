@@ -63,6 +63,7 @@ describe("content primitives", () => {
   it("keeps public-reader latency and cache limits explicit", () => {
     expect(GITHUB_READER_POLICY).toEqual({
       freshTtlSeconds: 600,
+      softStaleTtlSeconds: 3_600,
       staleTtlSeconds: 604_800,
       timeoutMs: 4_000,
       listPageSize: 12,
