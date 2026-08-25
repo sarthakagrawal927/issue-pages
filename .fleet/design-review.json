@@ -1,0 +1,90 @@
+{
+  "$schema": "fleet.design-review.v1",
+  "version": 1,
+  "project": "issue-pages",
+  "target": "public homepage and article system",
+  "mode": "overhaul",
+  "register": "brand",
+  "context": {
+    "product": "PRODUCT.md",
+    "design": "DESIGN.md"
+  },
+  "direction": {
+    "references": [
+      "Are.na - content-led, non-algorithmic discovery",
+      "GitHub Issues - legible provenance and discussion metadata",
+      "nownownow - plain public-service directory ethos"
+    ],
+    "probes": [
+      {
+        "id": "open-pinboard",
+        "path": ".fleet/probes/open-pinboard.png"
+      },
+      {
+        "id": "issue-hall",
+        "path": ".fleet/probes/issue-hall.png"
+      },
+      {
+        "id": "issue-dispatch-live-board-quiet",
+        "path": ".fleet/probes/issue-dispatch.png"
+      }
+    ],
+    "selected": "issue-dispatch-live-board-quiet",
+    "approval": "approved",
+    "before": ""
+  },
+  "evidence": {
+    "screenshots": [
+      {
+        "width": 390,
+        "path": "artifacts/design/after-390.jpg"
+      },
+      {
+        "width": 768,
+        "path": "artifacts/design/after-768.jpg"
+      },
+      {
+        "width": 1440,
+        "path": "artifacts/design/after-1440.jpg"
+      }
+    ],
+    "richRendererScreenshots": [
+      {
+        "width": 390,
+        "path": "artifacts/design/rich-content-390.png"
+      },
+      {
+        "width": 768,
+        "path": "artifacts/design/rich-content-768.png"
+      },
+      {
+        "width": 1440,
+        "path": "artifacts/design/rich-content-1440.png"
+      }
+    ],
+    "projectCheck": {
+      "command": "pnpm check && pnpm startup",
+      "status": "pass"
+    },
+    "critique": {
+      "score": 34,
+      "maximum": 40
+    },
+    "audit": {
+      "score": 19,
+      "maximum": 20
+    },
+    "unresolved": {
+      "p0": 0,
+      "p1": 0
+    },
+    "detector": {
+      "posture": "advisory",
+      "findings": []
+    }
+  },
+  "ownerFeedback": {
+    "decision": "delegated",
+    "note": "Owner explicitly delegated final design approval on 2026-08-25."
+  }
+}

@@ -1,0 +1,22 @@
+import path from "node:path";
+import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  plugins: [
+    cloudflareTest(async () => ({
+      wrangler: { configPath: "./wrangler.jsonc" },
+      miniflare: {
+        bindings: {
+          TEST_MIGRATIONS: await readD1Migrations(path.join(import.meta.dirname, "migrations")),
+          GITHUB_WEBHOOK_SECRET: "test-webhook-secret",
+          OPENAI_API_KEY: "test-openai-key",
+          ADMIN_REVIEW_SECRET: "test-admin-secret",
+        },
+      },
+    })),
+  ],
+  test: {
+    setupFiles: ["./test/setup.ts"],
+  },
+});

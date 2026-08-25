@@ -1,0 +1,48 @@
+{
+  "name": "issue-pages",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "client:build": "esbuild src/client/mermaid.ts --bundle --format=esm --minify --outfile=public/assets/mermaid.js",
+    "dev": "pnpm client:build && wrangler dev --port 8787",
+    "types": "wrangler types ./worker-configuration.d.ts",
+    "types:check": "wrangler types ./worker-configuration.d.ts --check",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:seed:local": "wrangler d1 execute DB --local --file ./fixtures/seed.sql",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "test": "vitest run",
+    "build": "pnpm client:build && wrangler deploy --dry-run --env=\"\" --outdir dist",
+    "startup": "wrangler check startup",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "deploy": "pnpm client:build && wrangler deploy --env production --tag $(git rev-parse HEAD)"
+  },
+  "dependencies": {
+    "hast-util-from-html": "^2.0.3",
+    "hast-util-sanitize": "^5.0.2",
+    "hast-util-to-html": "^9.0.5",
+    "hono": "4.13.4",
+    "katex": "^0.18.4",
+    "marked": "18.0.11",
+    "mermaid": "^11.17.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.10",
+    "@cloudflare/vitest-plugin": "1.0.0",
+    "@cloudflare/workers-types": "5.20260825.1",
+    "@types/hast": "^3.0.5",
+    "@types/katex": "^0.16.8",
+    "@types/node": "24.5.2",
+    "esbuild": "^0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11",
+    "wrangler": "4.125.0"
+  }
+}

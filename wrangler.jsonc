@@ -1,0 +1,73 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "issue-pages",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "./public"
+  },
+  "vars": {
+    "GITHUB_OWNER": "sarthakagrawal927",
+    "GITHUB_REPO": "issue-pages",
+    "GITHUB_REPOSITORY_ID": "1345783913",
+    "PUBLIC_ORIGIN": "http://localhost:8787"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "issue-pages-local",
+      "database_id": "local",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "SEARCH_RATE_LIMIT",
+      "namespace_id": "12001",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
+      "name": "VERSION_RATE_LIMIT",
+      "namespace_id": "12002",
+      "simple": { "limit": 120, "period": 60 }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "env": {
+    "production": {
+      "name": "issue-pages-production",
+      "vars": {
+        "GITHUB_OWNER": "sarthakagrawal927",
+        "GITHUB_REPO": "issue-pages",
+        "GITHUB_REPOSITORY_ID": "1345783913",
+        "PUBLIC_ORIGIN": "https://example.invalid"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "issue-pages",
+          "database_id": "REPLACE_WITH_PRODUCTION_D1_ID",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "SEARCH_RATE_LIMIT",
+          "namespace_id": "12001",
+          "simple": { "limit": 60, "period": 60 }
+        },
+        {
+          "name": "VERSION_RATE_LIMIT",
+          "namespace_id": "12002",
+          "simple": { "limit": 120, "period": 60 }
+        }
+      ]
+    }
+  }
+}
