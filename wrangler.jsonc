@@ -46,13 +46,14 @@
         "GITHUB_OWNER": "sarthakagrawal927",
         "GITHUB_REPO": "issue-pages",
         "GITHUB_REPOSITORY_ID": "1345783913",
+        "MODERATION_MODE": "owner-only",
         "PUBLIC_ORIGIN": "https://example.invalid"
       },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "issue-pages",
-          "database_id": "REPLACE_WITH_PRODUCTION_D1_ID",
+          "database_id": "cd13caab-9436-4236-a3f1-934a9bc0f2cd",
           "migrations_dir": "migrations"
         }
       ],
