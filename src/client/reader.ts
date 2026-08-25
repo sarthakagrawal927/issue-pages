@@ -112,6 +112,28 @@ document.addEventListener("focusin", (event) => {
 
 const embedChannel = document.documentElement.dataset.embedChannel;
 if (embedChannel) {
+  window.addEventListener("message", (event: MessageEvent<unknown>) => {
+    if (event.source !== window.parent) return;
+    const data = event.data;
+    if (!data || typeof data !== "object") return;
+    const message = data as {
+      type?: unknown;
+      channel?: unknown;
+      theme?: unknown;
+      accent?: unknown;
+    };
+    if (
+      message.type !== "issuepages:appearance" ||
+      message.channel !== embedChannel ||
+      (message.theme !== "light" && message.theme !== "dark")
+    )
+      return;
+    document.documentElement.dataset.theme = message.theme;
+    if (typeof message.accent === "string" && /^#[\da-f]{6}$/i.test(message.accent)) {
+      document.documentElement.style.setProperty("--embed-accent", message.accent);
+    }
+  });
+
   for (const link of document.querySelectorAll<HTMLAnchorElement>(".prose a")) {
     if (link.origin !== window.location.origin) {
       link.target = "_blank";

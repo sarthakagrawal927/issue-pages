@@ -309,7 +309,7 @@ describe("public Worker routes", () => {
     const before = readerRequests.length;
     const response = await exports.default.fetch(
       new Request(
-        "http://localhost:8787/embed?repo=acme%2Fbuilder-notes&theme=dark&density=compact&accent=%23123456",
+        "http://localhost:8787/embed?repo=acme%2Fbuilder-notes&theme=inherit&density=compact&accent=%23123456&label=blog&author=octocat",
       ),
     );
     expect(response.status).toBe(200);
@@ -319,9 +319,11 @@ describe("public Worker routes", () => {
     expect(body).toContain("Paste one script. Get the whole repository.");
     expect(body).toContain("data-repo=&quot;acme/builder-notes&quot;");
     expect(body).toContain('data-repo="acme/builder-notes"');
-    expect(body).toContain('data-theme="dark"');
+    expect(body).toContain('data-theme="inherit"');
     expect(body).toContain('data-density="compact"');
     expect(body).toContain('data-accent="#123456"');
+    expect(body).toContain('data-label="blog"');
+    expect(body).toContain('data-author="octocat"');
   });
 
   it("lists public issues, excludes pull requests, and never sends credentials", async () => {
@@ -376,6 +378,33 @@ describe("public Worker routes", () => {
     expect(body).toContain(
       "/embed/acme/embed-notes/issues/7/a-public-reader-issue?theme=dark&amp;density=compact&amp;accent=%23123456&amp;channel=test-channel",
     );
+  });
+
+  it("filters an embed by label and issue author and preserves both filters", async () => {
+    const response = await exports.default.fetch(
+      new Request(
+        "http://localhost:8787/embed/acme/filter-notes?label=blog&author=reader-author&theme=inherit",
+      ),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain('data-theme="auto"');
+    expect(body).toContain("Issues tagged blog and by @reader-author");
+    expect(body).toContain("label=blog&amp;author=reader-author");
+    const outbound = readerRequests.find((entry) =>
+      entry.url.includes("/repos/acme/filter-notes/issues?"),
+    );
+    expect(outbound?.url).toContain("labels=blog");
+    expect(outbound?.url).toContain("creator=reader-author");
+  });
+
+  it("keeps custom accents away from accessibility-critical focus contrast", async () => {
+    const response = await exports.default.fetch(new Request("http://localhost:8787/embed.css"));
+    expect(response.status).toBe(200);
+    const css = await response.text();
+    expect(css).toContain(":focus-visible { outline:3px solid #3b82f6");
+    expect(css).toContain("box-shadow:0 0 0 5px var(--sheet),0 0 0 7px var(--ink)");
+    expect(css).not.toContain(":focus-visible { outline:3px solid var(--embed-accent)");
   });
 
   it("provides previous and next cursors inside the embed", async () => {

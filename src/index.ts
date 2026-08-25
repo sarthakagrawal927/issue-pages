@@ -601,6 +601,8 @@ async function embedRepository(c: Context<AppEnv>): Promise<Response> {
     const result = await listPublicIssues({
       repository,
       page,
+      ...(options.label ? { label: options.label } : {}),
+      ...(options.author ? { author: options.author } : {}),
       origin: c.env.PUBLIC_ORIGIN,
       ctx: c.executionCtx,
     });

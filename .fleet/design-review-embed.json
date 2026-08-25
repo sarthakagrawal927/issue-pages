@@ -20,15 +20,15 @@
     "screenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/reader-390.png"
+        "path": "artifacts/design/embed-390.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/reader-768.png"
+        "path": "artifacts/design/embed-768.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/reader-1440.png"
+        "path": "artifacts/design/embed-1440.png"
       }
     ],
     "projectCheck": {
@@ -36,11 +36,11 @@
       "status": "pass"
     },
     "critique": {
-      "score": 34,
+      "score": 37,
       "maximum": 40
     },
     "audit": {
-      "score": 19,
+      "score": 20,
       "maximum": 20
     },
     "unresolved": {
@@ -49,7 +49,9 @@
     },
     "detector": {
       "posture": "advisory",
-      "findings": []
+      "findings": [
+        "Three side-tab warnings are semantic Markdown blockquote and GitHub alert rules, not decorative card accents; retained for source-content hierarchy."
+      ]
     }
   },
   "ownerFeedback": {

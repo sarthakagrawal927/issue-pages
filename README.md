@@ -22,7 +22,9 @@ Paste one script anywhere that accepts custom HTML:
   async
   src="https://issues.sarthakagrawal.dev/embed.js"
   data-repo="owner/repository"
-  data-theme="auto"
+  data-theme="inherit"
+  data-label="blog"
+  data-author="octocat"
 ></script>
 ```
 
@@ -33,9 +35,17 @@ are excluded. The frame resizes itself as readers navigate.
 
 The supported presentation controls are deliberately bounded:
 
-- `data-theme="auto|light|dark"`
+- `data-theme="auto|inherit|light|dark"`
 - `data-density="comfortable|compact"`
 - `data-accent="#RRGGBB"`
+- `data-accent-light="#RRGGBB"` and `data-accent-dark="#RRGGBB"`
+- `data-label="label name"` to include only issues carrying one GitHub label
+- `data-author="github-login"` to include only issues opened by one GitHub user
+
+`inherit` reads the host document's `data-theme="light|dark"` value, follows
+later changes to it, and falls back to the operating-system preference. The
+light and dark accent overrides are useful when the host theme needs different
+contrast in each mode.
 
 Set width or surrounding spacing on the host page as normal CSS. Arbitrary
 in-frame CSS and remote fonts are not accepted, so content remains isolated and

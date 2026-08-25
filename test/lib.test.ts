@@ -67,6 +67,8 @@ describe("content primitives", () => {
       ["density", "compact"],
       ["accent", "#12ABEF"],
       ["channel", "frame_42-safe"],
+      ["label", "blog"],
+      ["author", "octocat"],
     ]);
     const options = parseEmbedOptions((name) => values.get(name));
     expect(options).toEqual({
@@ -74,15 +76,27 @@ describe("content primitives", () => {
       density: "compact",
       accent: "#12abef",
       channel: "frame_42-safe",
+      label: "blog",
+      author: "octocat",
     });
     expect(embedQuery(options, { cursor: "page-two" })).toBe(
-      "theme=dark&density=compact&accent=%2312abef&channel=frame_42-safe&cursor=page-two",
+      "theme=dark&density=compact&accent=%2312abef&channel=frame_42-safe&label=blog&author=octocat&cursor=page-two",
     );
-    expect(parseEmbedOptions(() => "javascript:alert(1)")).toEqual({
+    const invalidValues = new Map([
+      ["theme", "javascript:alert(1)"],
+      ["density", "spacious"],
+      ["accent", "javascript:alert(1)"],
+      ["channel", "not a channel"],
+      ["label", `bad${String.fromCodePoint(0)}label`],
+      ["author", "not a github login"],
+    ]);
+    expect(parseEmbedOptions((name) => invalidValues.get(name))).toEqual({
       theme: "auto",
       density: "comfortable",
       accent: "#d3aa36",
       channel: "",
+      label: "",
+      author: "",
     });
   });
 

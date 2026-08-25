@@ -574,14 +574,20 @@ function apiRepositoryPath(repository: PublicRepository): string {
 export async function listPublicIssues(options: {
   repository: PublicRepository;
   page: number;
+  label?: string;
+  author?: string;
   origin: string;
   ctx: ReaderExecutionContext;
 }): Promise<PublicIssueList> {
   const base = apiRepositoryPath(options.repository);
+  const label = options.label?.normalize("NFKC").trim() ?? "";
+  const labelQuery = label ? `&labels=${encodeURIComponent(label)}` : "";
+  const author = options.author?.normalize("NFKC").trim() ?? "";
+  const authorQuery = author ? `&creator=${encodeURIComponent(author)}` : "";
   const result = await cachedGitHubRead({
     origin: options.origin,
-    key: `list:${options.repository.owner}/${options.repository.repo}:${options.page}`,
-    path: `${base}/issues?state=all&sort=updated&direction=desc&per_page=${LIST_PAGE_SIZE}&page=${options.page}`,
+    key: `list:${options.repository.owner}/${options.repository.repo}:${label || "*"}:${author || "*"}:${options.page}`,
+    path: `${base}/issues?state=all&sort=updated&direction=desc&per_page=${LIST_PAGE_SIZE}&page=${options.page}${labelQuery}${authorQuery}`,
     mediaType: GITHUB_JSON_MEDIA,
     ctx: options.ctx,
     validate: isIssueList,

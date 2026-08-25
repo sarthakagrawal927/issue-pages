@@ -467,7 +467,10 @@ export function embedBuilderPage(
 ): string {
   const repoName = repository ? `${repository.owner}/${repository.repo}` : "owner/repository";
   const accentAttribute = options.accent === "#d3aa36" ? "" : `\n  data-accent="${options.accent}"`;
-  const snippet = `<script\n  async\n  src="${origin}/embed.js"\n  data-repo="${repoName}"\n  data-theme="${options.theme}"\n  data-density="${options.density}"${accentAttribute}\n></script>`;
+  const labelAttribute = options.label ? `\n  data-label="${options.label}"` : "";
+  const authorAttribute = options.author ? `\n  data-author="${options.author}"` : "";
+  const variantAttribute = options.variant === "minimal" ? `\n  data-variant="minimal"` : "";
+  const snippet = `<script\n  async\n  src="${origin}/embed.js"\n  data-repo="${repoName}"\n  data-theme="${options.theme}"\n  data-density="${options.density}"${variantAttribute}${accentAttribute}${labelAttribute}${authorAttribute}\n></script>`;
   return `<div class="embed-builder">
     <section class="embed-builder__intro">
       <p class="eyebrow">Embeddable publication</p>
@@ -478,10 +481,16 @@ export function embedBuilderPage(
       <label for="embed-repository">Public GitHub repository</label>
       <input id="embed-repository" name="repo" value="${escapeHtml(value)}" placeholder="owner/repository" spellcheck="false" required${error ? ' aria-invalid="true"' : ""}>
       <div class="embed-config__options">
-        <label>Theme<select name="theme"><option value="auto"${options.theme === "auto" ? " selected" : ""}>Auto</option><option value="light"${options.theme === "light" ? " selected" : ""}>Light</option><option value="dark"${options.theme === "dark" ? " selected" : ""}>Dark</option></select></label>
+        <label>Theme<select name="theme"><option value="auto"${options.theme === "auto" ? " selected" : ""}>Auto</option><option value="inherit"${options.theme === "inherit" ? " selected" : ""}>Inherit host</option><option value="light"${options.theme === "light" ? " selected" : ""}>Light</option><option value="dark"${options.theme === "dark" ? " selected" : ""}>Dark</option></select></label>
         <label>Density<select name="density"><option value="comfortable"${options.density === "comfortable" ? " selected" : ""}>Comfortable</option><option value="compact"${options.density === "compact" ? " selected" : ""}>Compact</option></select></label>
         <label>Accent<input name="accent" type="color" value="${options.accent}"></label>
       </div>
+      <label for="embed-variant">Frame style</label>
+      <select id="embed-variant" name="variant"><option value="folio"${options.variant === "folio" ? " selected" : ""}>Issue folio</option><option value="minimal"${options.variant === "minimal" ? " selected" : ""}>Minimal host-neutral</option></select>
+      <label for="embed-label">Only issues with this label <span>(optional)</span></label>
+      <input id="embed-label" name="label" value="${escapeHtml(options.label)}" placeholder="blog" maxlength="50">
+      <label for="embed-author">Only issues by this GitHub author <span>(optional)</span></label>
+      <input id="embed-author" name="author" value="${escapeHtml(options.author)}" placeholder="octocat" maxlength="39" spellcheck="false">
       ${error ? `<p class="field-error" role="alert">${escapeHtml(error)}</p>` : ""}
       <button type="submit">Build embed →</button>
     </form>
@@ -492,7 +501,7 @@ export function embedBuilderPage(
     </section>
     ${
       repository
-        ? `<section class="embed-preview" aria-labelledby="embed-preview-title"><p class="eyebrow">Live preview</p><h2 id="embed-preview-title">${escapeHtml(repoName)}</h2><script async src="/embed.js" data-repo="${escapeHtml(repoName)}" data-theme="${options.theme}" data-density="${options.density}" data-accent="${options.accent}"></script></section>`
+        ? `<section class="embed-preview" aria-labelledby="embed-preview-title"><p class="eyebrow">Live preview</p><h2 id="embed-preview-title">${escapeHtml(repoName)}</h2><script async src="/embed.js" data-repo="${escapeHtml(repoName)}" data-theme="${options.theme}" data-density="${options.density}" data-variant="${options.variant}" data-accent="${options.accent}"${options.label ? ` data-label="${escapeHtml(options.label)}"` : ""}${options.author ? ` data-author="${escapeHtml(options.author)}"` : ""}></script></section>`
         : ""
     }
   </div>`;

@@ -1,25 +1,42 @@
-export type EmbedTheme = "auto" | "light" | "dark";
+export type EmbedTheme = "auto" | "inherit" | "light" | "dark";
 export type EmbedDensity = "compact" | "comfortable";
+export type EmbedVariant = "folio" | "minimal";
 
 export interface EmbedOptions {
   theme: EmbedTheme;
   density: EmbedDensity;
   accent: string;
   channel: string;
+  label: string;
+  author: string;
+  variant: EmbedVariant;
 }
 
 const DEFAULT_ACCENT = "#d3aa36";
+
+function hasControlCharacters(value: string): boolean {
+  return [...value].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
+}
 
 export function parseEmbedOptions(query: (name: string) => string | undefined): EmbedOptions {
   const theme = query("theme");
   const density = query("density");
   const accent = query("accent");
   const channel = query("channel");
+  const rawLabel = query("label")?.normalize("NFKC").trim() ?? "";
+  const rawAuthor = query("author")?.normalize("NFKC").trim() ?? "";
+  const variant = query("variant");
   return {
-    theme: theme === "light" || theme === "dark" ? theme : "auto",
+    theme: theme === "inherit" || theme === "light" || theme === "dark" ? theme : "auto",
     density: density === "compact" ? density : "comfortable",
     accent: accent && /^#[\da-f]{6}$/i.test(accent) ? accent.toLowerCase() : DEFAULT_ACCENT,
     channel: channel && /^[\w-]{1,80}$/.test(channel) ? channel : "",
+    label: rawLabel.length <= 50 && !hasControlCharacters(rawLabel) ? rawLabel : "",
+    author: /^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(rawAuthor) ? rawAuthor : "",
+    variant: variant === "minimal" ? "minimal" : "folio",
   };
 }
 
@@ -33,6 +50,9 @@ export function embedQuery(
   });
   if (options.accent !== DEFAULT_ACCENT) params.set("accent", options.accent);
   if (options.channel) params.set("channel", options.channel);
+  if (options.label) params.set("label", options.label);
+  if (options.author) params.set("author", options.author);
+  if (options.variant === "minimal") params.set("variant", options.variant);
   for (const [key, value] of Object.entries(extra)) {
     if (value) params.set(key, value);
   }

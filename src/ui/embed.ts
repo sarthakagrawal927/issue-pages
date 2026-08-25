@@ -132,15 +132,16 @@ export function embedLayout(
   options: EmbedOptions,
   mermaid = false,
 ): string {
+  const renderedTheme = options.theme === "inherit" ? "auto" : options.theme;
   return `<!doctype html>
-<html lang="en" data-theme="${options.theme}" data-density="${options.density}" data-embed-channel="${escapeHtml(options.channel)}" style="--embed-accent:${options.accent}">
+<html lang="en" data-theme="${renderedTheme}" data-density="${options.density}" data-variant="${options.variant}" data-embed-channel="${escapeHtml(options.channel)}" style="--embed-accent:${options.accent}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="color-scheme" content="light dark">
   <title>${escapeHtml(title)} · IssuePages embed</title>
-  <link rel="stylesheet" href="/embed.css?v=20260826-2">
+  <link rel="stylesheet" href="/embed.css?v=20260826-3">
   <script type="module" src="/assets/reader.js?v=20260826-2"></script>
   ${mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
 </head>
@@ -160,11 +161,17 @@ export function embedRepositoryPage(
   options: EmbedOptions,
   currentCursor: string | null,
 ): string {
+  const filterDescription = [
+    options.label ? `tagged ${escapeHtml(options.label)}` : "",
+    options.author ? `by @${escapeHtml(options.author)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" and ");
   const issues = result.issues.length
     ? result.issues
         .map((issue) => issueRow(result.repository, issue, options, currentCursor))
         .join("")
-    : '<div class="embed-empty"><strong>No issues on this page.</strong><br>It may be empty or contain only pull requests.</div>';
+    : `<div class="embed-empty"><strong>No matching issues on this page.</strong><br>${filterDescription ? `No issues ${filterDescription} were returned.` : "It may be empty or contain only pull requests."}</div>`;
   const previous =
     result.page > 1
       ? repositoryHref(
@@ -175,7 +182,7 @@ export function embedRepositoryPage(
       : null;
   return `${freshness(result.stale, result.cachedAt)}
     <section class="embed-intro">
-      <div><p>Public issue publication</p><h1>${escapeHtml(result.repository.owner)}<span>/</span>${escapeHtml(result.repository.repo)}</h1></div>
+      <div><p>${filterDescription ? `Issues ${filterDescription}` : "Public issue publication"}</p><h1>${escapeHtml(result.repository.owner)}<span>/</span>${escapeHtml(result.repository.repo)}</h1></div>
       <span>Page ${result.page}</span>
     </section>
     <div class="embed-ledger">${issues}</div>
