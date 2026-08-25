@@ -23,7 +23,8 @@ function renderDiscussionError(container: HTMLElement, source: string): void {
 
   const github = document.createElement("a");
   github.href = source;
-  github.rel = "external";
+  github.rel = "external noopener";
+  github.target = "_blank";
   github.textContent = "Open GitHub ↗";
   message.append(retry, " · ", github);
   container.append(message);
@@ -65,7 +66,9 @@ const hoverTimers = new WeakMap<HTMLAnchorElement, number>();
 
 function issueLink(target: EventTarget | null): HTMLAnchorElement | null {
   if (!(target instanceof Element)) return null;
-  const link = target.closest<HTMLAnchorElement>('a[href^="/github/"][href*="/issues/"]');
+  const link = target.closest<HTMLAnchorElement>(
+    'a[href^="/github/"][href*="/issues/"],a[href^="/embed/"][href*="/issues/"]',
+  );
   if (!link || link.href.endsWith("/discussion")) return null;
   return link;
 }
@@ -106,3 +109,34 @@ document.addEventListener("focusin", (event) => {
   const link = issueLink(event.target);
   if (link) schedulePrefetch(link);
 });
+
+const embedChannel = document.documentElement.dataset.embedChannel;
+if (embedChannel) {
+  for (const link of document.querySelectorAll<HTMLAnchorElement>(".prose a")) {
+    if (link.origin !== window.location.origin) {
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+    }
+  }
+
+  let lastHeight = 0;
+  let scheduled = false;
+  const reportHeight = () => {
+    scheduled = false;
+    const height = Math.ceil(
+      Math.max(document.body.scrollHeight, document.documentElement.scrollHeight),
+    );
+    if (height === lastHeight) return;
+    lastHeight = height;
+    window.parent.postMessage({ type: "issuepages:resize", channel: embedChannel, height }, "*");
+  };
+  const scheduleHeight = () => {
+    if (scheduled) return;
+    scheduled = true;
+    window.requestAnimationFrame(reportHeight);
+  };
+  new ResizeObserver(scheduleHeight).observe(document.body);
+  window.addEventListener("load", scheduleHeight, { once: true });
+  void document.fonts.ready.then(scheduleHeight);
+  scheduleHeight();
+}

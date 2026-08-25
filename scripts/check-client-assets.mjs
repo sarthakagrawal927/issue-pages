@@ -13,6 +13,11 @@ for (const [file, maximumBytes] of limits) {
   }
 }
 
+const embed = await stat(new URL("../public/embed.js", import.meta.url));
+if (embed.size > 10_000) {
+  throw new Error(`embed.js is ${embed.size} bytes; the performance budget is 10000 bytes.`);
+}
+
 const chunks = (await readdir(new URL("chunks/", assets))).filter((file) => file.endsWith(".js"));
 if (chunks.length === 0) {
   throw new Error("Mermaid must retain diagram-level code splitting.");

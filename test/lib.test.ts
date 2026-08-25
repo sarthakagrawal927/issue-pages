@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decodeCursor, encodeCursor } from "../src/lib/cursor";
+import { embedQuery, parseEmbedOptions } from "../src/lib/embed";
 import { normalizeGitHubHtml } from "../src/lib/github-html";
 import { renderGitHubMarkdown } from "../src/lib/github-markdown";
 import {
@@ -58,6 +59,31 @@ describe("content primitives", () => {
     expect(decodeReaderCursor(cursor)).toBe(2);
     expect(decodeReaderCursor("not-a-cursor")).toBeNull();
     expect(decodeReaderCursor(encodeReaderCursor(501))).toBeNull();
+  });
+
+  it("keeps embed styling bounded and serializable", () => {
+    const values = new Map([
+      ["theme", "dark"],
+      ["density", "compact"],
+      ["accent", "#12ABEF"],
+      ["channel", "frame_42-safe"],
+    ]);
+    const options = parseEmbedOptions((name) => values.get(name));
+    expect(options).toEqual({
+      theme: "dark",
+      density: "compact",
+      accent: "#12abef",
+      channel: "frame_42-safe",
+    });
+    expect(embedQuery(options, { cursor: "page-two" })).toBe(
+      "theme=dark&density=compact&accent=%2312abef&channel=frame_42-safe&cursor=page-two",
+    );
+    expect(parseEmbedOptions(() => "javascript:alert(1)")).toEqual({
+      theme: "auto",
+      density: "comfortable",
+      accent: "#d3aa36",
+      channel: "",
+    });
   });
 
   it("keeps public-reader latency and cache limits explicit", () => {

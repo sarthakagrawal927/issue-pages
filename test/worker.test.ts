@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { encodeReaderCursor } from "../src/lib/github-reader";
 
 let renderProbeAvailable = false;
 const readerRequests: Array<{
@@ -246,6 +247,8 @@ describe("public Worker routes", () => {
     const response = await exports.default.fetch(new Request("http://localhost:8787/"));
     expect(response.status).toBe(200);
     expect(response.headers.get("content-security-policy")).toContain("default-src 'self'");
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
     const body = await response.text();
     expect(body).toContain("A tested public page");
     expect(body).toContain("This website is a GitHub repository");
@@ -327,6 +330,97 @@ describe("public Worker routes", () => {
     await expect(env.DB.prepare("SELECT COUNT(*) AS count FROM articles").first()).resolves.toEqual(
       beforeArticles,
     );
+  });
+
+  it("renders a frame-safe, styled, paginated repository publication", async () => {
+    const response = await exports.default.fetch(
+      new Request(
+        "http://localhost:8787/embed/acme/embed-notes?theme=dark&density=compact&accent=%23123456&channel=test-channel",
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+    expect(response.headers.get("x-frame-options")).toBeNull();
+    expect(response.headers.get("content-security-policy")).toContain(
+      "frame-ancestors https: http:",
+    );
+    const body = await response.text();
+    expect(body).toContain('data-theme="dark"');
+    expect(body).toContain('data-density="compact"');
+    expect(body).toContain("--embed-accent:#123456");
+    expect(body).toContain('data-embed-channel="test-channel"');
+    expect(body).toContain("A public reader issue");
+    expect(body).not.toContain("Pull request result");
+    expect(body).toContain("Page 1");
+    expect(body).toContain("Older →");
+    expect(body).toContain(
+      "/embed/acme/embed-notes/issues/7/a-public-reader-issue?theme=dark&amp;density=compact&amp;accent=%23123456&amp;channel=test-channel",
+    );
+  });
+
+  it("provides previous and next cursors inside the embed", async () => {
+    const cursor = encodeReaderCursor(2);
+    const response = await exports.default.fetch(
+      new Request(`http://localhost:8787/embed/acme/embed-page-two?cursor=${cursor}`),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("← Newer");
+    expect(body).toContain("Page 2");
+    expect(body).toContain("Older →");
+    expect(body).toContain('href="/embed/acme/embed-page-two?theme=auto&amp;density=comfortable"');
+  });
+
+  it("preserves embed appearance and pagination when opening a full issue", async () => {
+    const back = encodeReaderCursor(2);
+    const query = `theme=dark&density=compact&accent=%23123456&channel=frame-7&back=${back}`;
+    const short = await exports.default.fetch(
+      new Request(`http://localhost:8787/embed/acme/embed-article/issues/7?${query}`, {
+        redirect: "manual",
+      }),
+    );
+    expect(short.status).toBe(308);
+    expect(short.headers.get("location")).toContain(
+      "/embed/acme/embed-article/issues/7/a-public-reader-issue?theme=dark&density=compact&accent=%23123456&channel=frame-7&back=",
+    );
+
+    const response = await exports.default.fetch(
+      new Request(
+        `http://localhost:8787/embed/acme/embed-article/issues/7/a-public-reader-issue?${query}`,
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-frame-options")).toBeNull();
+    const body = await response.text();
+    expect(body).toContain("Reader <strong>body</strong>");
+    expect(body).not.toContain("<script>alert(1)</script>");
+    expect(body).not.toContain("A <em>reply</em>");
+    expect(body).toContain("data-reader-discussion");
+    expect(body).toContain(
+      `/embed/acme/embed-article?theme=dark&amp;density=compact&amp;accent=%23123456&amp;channel=frame-7&amp;cursor=${back}`,
+    );
+    expect(body).toContain('target="_blank" rel="external noopener"');
+
+    const discussion = await exports.default.fetch(
+      new Request(
+        "http://localhost:8787/embed/acme/embed-article/issues/7/discussion?theme=dark&channel=frame-7",
+      ),
+    );
+    expect(discussion.status).toBe(200);
+    const discussionBody = await discussion.text();
+    expect(discussionBody).toContain("A <em>reply</em>");
+    expect(discussionBody).not.toContain("javascript:");
+    expect(discussionBody).toContain('target="_blank" rel="external noopener"');
+  });
+
+  it("rejects malformed embed cursors before calling GitHub", async () => {
+    const before = readerRequests.length;
+    const response = await exports.default.fetch(
+      new Request("http://localhost:8787/embed/acme/embed-invalid?cursor=not-a-cursor"),
+    );
+    expect(response.status).toBe(400);
+    expect(readerRequests).toHaveLength(before);
+    expect(await response.text()).toContain("That page link is invalid");
   });
 
   it("renders a sanitized issue before loading its bounded discussion", async () => {

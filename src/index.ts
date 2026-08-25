@@ -18,9 +18,19 @@ import {
   GitHubReaderError,
   listPublicIssues,
   parsePublicRepository,
+  type PublicRepository,
 } from "./lib/github-reader";
+import { embedQuery, parseEmbedOptions, type EmbedOptions } from "./lib/embed";
 import type { AppBindings, ArticleListRow } from "./types";
 import { articlePollingScript, styles } from "./ui/assets";
+import { embedStyles } from "./ui/embed-assets";
+import {
+  embedDiscussionFragment,
+  embedErrorPage,
+  embedIssuePage,
+  embedLayout,
+  embedRepositoryPage,
+} from "./ui/embed";
 import {
   articlePage,
   authorIntro,
@@ -50,17 +60,18 @@ function siteIdentity(env: AppBindings): SiteIdentity {
   };
 }
 
-function securityHeaders(response: Response): Response {
+function securityHeaders(response: Response, embeddable = false): Response {
   const headers = new Headers(response.headers);
   headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    `default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors ${embeddable ? "https: http:" : "'none'"}; base-uri 'none'; form-action 'self'`,
   );
   headers.set("Cross-Origin-Opener-Policy", "same-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("X-Frame-Options", "DENY");
+  if (embeddable) headers.delete("X-Frame-Options");
+  else headers.set("X-Frame-Options", "DENY");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -70,7 +81,7 @@ function securityHeaders(response: Response): Response {
 
 app.use("*", async (c, next) => {
   await next();
-  c.res = securityHeaders(c.res);
+  c.res = securityHeaders(c.res, c.req.path.startsWith("/embed/"));
 });
 
 function html(c: Context<AppEnv>, title: string, body: string): Response {
@@ -102,6 +113,11 @@ app.use("/read", async (c, next) => {
 });
 
 app.use("/github/*", async (c, next) => {
+  await next();
+  c.res = readerHeaders(c.res);
+});
+
+app.use("/embed/*", async (c, next) => {
   await next();
   c.res = readerHeaders(c.res);
 });
@@ -238,6 +254,13 @@ async function withinRateLimit(
 
 app.get("/styles.css", (c) => {
   return c.body(styles, 200, {
+    "Cache-Control": "public, max-age=86400, immutable",
+    "Content-Type": "text/css; charset=utf-8",
+  });
+});
+
+app.get("/embed.css", (c) => {
+  return c.body(embedStyles, 200, {
     "Cache-Control": "public, max-age=86400, immutable",
     "Content-Type": "text/css; charset=utf-8",
   });
@@ -431,6 +454,259 @@ async function readerDiscussion(c: Context<AppEnv>): Promise<Response> {
 
 app.get("/github/:owner/:repo/issues/:number/discussion", readerDiscussion);
 app.get("/github/:owner/:repo/issues/:number/:slug", (c) => readerIssue(c, false));
+
+function embedHtml(
+  c: Context<AppEnv>,
+  title: string,
+  repository: PublicRepository | null,
+  body: string,
+  options: EmbedOptions,
+  responseOptions: {
+    status?: 200 | 400 | 404 | 429 | 503;
+    mermaid?: boolean;
+    refreshing?: boolean;
+    stale?: boolean;
+  } = {},
+): Response {
+  const status = responseOptions.status ?? 200;
+  const response = c.html(
+    embedLayout(title, repository, body, options, responseOptions.mermaid),
+    status,
+    {
+      "Cache-Control":
+        status === 200
+          ? "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400"
+          : "no-store",
+    },
+  );
+  return readerHeaders(
+    response,
+    status === 200
+      ? responseOptions.stale
+        ? "STALE"
+        : responseOptions.refreshing
+          ? "REFRESHING"
+          : "FRESH"
+      : undefined,
+  );
+}
+
+function embedOptions(c: Context<AppEnv>): EmbedOptions {
+  return parseEmbedOptions((name) => c.req.query(name));
+}
+
+function embedFailure(
+  c: Context<AppEnv>,
+  error: unknown,
+  repository: PublicRepository | null,
+  options: EmbedOptions,
+): Response {
+  if (!(error instanceof GitHubReaderError)) throw error;
+  if (error.code === "not_found") {
+    return embedHtml(
+      c,
+      "Repository unavailable",
+      repository,
+      embedErrorPage(
+        404,
+        "Public issues unavailable",
+        "The repository or issue may be missing, private, or have issues disabled.",
+      ),
+      options,
+      { status: 404 },
+    );
+  }
+  const requestUrl = new URL(c.req.url);
+  const response = embedHtml(
+    c,
+    "GitHub temporarily unavailable",
+    repository,
+    embedErrorPage(
+      503,
+      "GitHub could not answer",
+      error.code === "rate_limited"
+        ? "The shared GitHub allowance is exhausted. Wait a minute and try again."
+        : "This publication could not refresh from GitHub. Try again shortly.",
+      `${requestUrl.pathname}${requestUrl.search}`,
+    ),
+    options,
+    { status: 503 },
+  );
+  response.headers.set("Retry-After", "60");
+  return response;
+}
+
+async function embedRepository(c: Context<AppEnv>): Promise<Response> {
+  const options = embedOptions(c);
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  if (!repository) {
+    return embedHtml(
+      c,
+      "Repository unavailable",
+      null,
+      embedErrorPage(404, "Public issues unavailable", "That is not a valid repository path."),
+      options,
+      { status: 404 },
+    );
+  }
+  if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "embed"))) {
+    const response = embedHtml(
+      c,
+      "Publication paused",
+      repository,
+      embedErrorPage(
+        429,
+        "Too many repository reads",
+        "Wait a minute, then try again.",
+        c.req.path,
+      ),
+      options,
+      { status: 429 },
+    );
+    response.headers.set("Retry-After", "60");
+    return response;
+  }
+  const rawCursor = c.req.query("cursor");
+  const page = decodeReaderCursor(rawCursor);
+  if (page === null) {
+    return embedHtml(
+      c,
+      "Invalid page",
+      repository,
+      embedErrorPage(
+        400,
+        "That page link is invalid",
+        "Return to the repository and try again.",
+        `${c.req.path}?${embedQuery(options)}`,
+      ),
+      options,
+      { status: 400 },
+    );
+  }
+  try {
+    const result = await listPublicIssues({
+      repository,
+      page,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    return embedHtml(
+      c,
+      `${repository.owner}/${repository.repo}`,
+      repository,
+      embedRepositoryPage(result, options, rawCursor ?? null),
+      options,
+      { refreshing: result.refreshing, stale: result.stale },
+    );
+  } catch (error) {
+    return embedFailure(c, error, repository, options);
+  }
+}
+
+app.get("/embed/:owner/:repo", embedRepository);
+
+async function embedIssue(c: Context<AppEnv>, redirectShort: boolean): Promise<Response> {
+  const options = embedOptions(c);
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  const issueNumber = Number(c.req.param("number"));
+  if (!repository || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
+    return embedHtml(
+      c,
+      "Issue unavailable",
+      repository,
+      embedErrorPage(404, "Public issue unavailable", "That is not a valid public issue path."),
+      options,
+      { status: 404 },
+    );
+  }
+  if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "embed"))) {
+    const response = embedHtml(
+      c,
+      "Publication paused",
+      repository,
+      embedErrorPage(
+        429,
+        "Too many repository reads",
+        "Wait a minute, then try again.",
+        c.req.path,
+      ),
+      options,
+      { status: 429 },
+    );
+    response.headers.set("Retry-After", "60");
+    return response;
+  }
+  const rawBack = c.req.query("back");
+  const backCursor = rawBack && decodeReaderCursor(rawBack) !== null ? rawBack : null;
+  try {
+    const result = await getPublicIssue({
+      repository,
+      issueNumber,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    const canonical = `/embed/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/issues/${issueNumber}/${encodeURIComponent(result.issue.slug)}?${embedQuery(options, { back: backCursor })}`;
+    if (redirectShort || c.req.param("slug") !== result.issue.slug) {
+      return readerHeaders(c.redirect(canonical, 308));
+    }
+    return embedHtml(
+      c,
+      result.issue.title,
+      repository,
+      embedIssuePage(result, options, backCursor),
+      options,
+      {
+        mermaid: result.issue.hasMermaid,
+        refreshing: result.refreshing,
+        stale: result.stale,
+      },
+    );
+  } catch (error) {
+    return embedFailure(c, error, repository, options);
+  }
+}
+
+app.get("/embed/:owner/:repo/issues/:number", (c) => embedIssue(c, true));
+
+async function embedDiscussion(c: Context<AppEnv>): Promise<Response> {
+  if (!(await withinRateLimit(c.env.SEARCH_RATE_LIMIT, c.req.raw, "embed-discussion"))) {
+    return readerHeaders(c.body(null, 429, { "Cache-Control": "no-store", "Retry-After": "60" }));
+  }
+  const repository = parsePublicRepository(`${c.req.param("owner")}/${c.req.param("repo")}`);
+  const issueNumber = Number(c.req.param("number"));
+  if (!repository || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) {
+    return readerHeaders(c.body(null, 404, { "Cache-Control": "no-store" }));
+  }
+  try {
+    const result = await getPublicIssueDiscussion({
+      repository,
+      issueNumber,
+      origin: c.env.PUBLIC_ORIGIN,
+      ctx: c.executionCtx,
+    });
+    const githubIssueUrl = `https://github.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}/issues/${issueNumber}`;
+    return readerHeaders(
+      c.html(embedDiscussionFragment(result, githubIssueUrl), 200, {
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400",
+      }),
+      result.stale ? "STALE" : result.refreshing ? "REFRESHING" : "FRESH",
+    );
+  } catch (error) {
+    if (error instanceof GitHubReaderError) {
+      const status = error.code === "not_found" ? 404 : 503;
+      return readerHeaders(
+        c.body(null, status, {
+          "Cache-Control": "no-store",
+          ...(status === 503 ? { "Retry-After": "60" } : {}),
+        }),
+      );
+    }
+    throw error;
+  }
+}
+
+app.get("/embed/:owner/:repo/issues/:number/discussion", embedDiscussion);
+app.get("/embed/:owner/:repo/issues/:number/:slug", (c) => embedIssue(c, false));
 
 async function renderListing(c: Context<AppEnv>, sort: "newest" | "updated"): Promise<Response> {
   const rawCursor = c.req.query("cursor");
