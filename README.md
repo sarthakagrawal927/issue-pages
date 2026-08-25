@@ -94,7 +94,12 @@ GitHub loader elements are not published.
 
 ## Cloudflare setup
 
-Deployment is intentionally unconfigured. Before any approved deployment:
+The owner-only pilot runs at
+`https://issue-pages-production.sarthakagrawal927.workers.dev`. Its production
+D1 binding and public origin are checked in; the remaining secret setup stays
+outside source control.
+
+For a new environment or recovery deployment:
 
 1. Create a production D1 database:
 

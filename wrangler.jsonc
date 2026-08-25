@@ -47,7 +47,7 @@
         "GITHUB_REPO": "issue-pages",
         "GITHUB_REPOSITORY_ID": "1345783913",
         "MODERATION_MODE": "owner-only",
-        "PUBLIC_ORIGIN": "https://example.invalid"
+        "PUBLIC_ORIGIN": "https://issue-pages-production.sarthakagrawal927.workers.dev"
       },
       "d1_databases": [
         {

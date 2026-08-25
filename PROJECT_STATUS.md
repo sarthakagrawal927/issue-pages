@@ -37,6 +37,7 @@ domains, and multiple publishing repositories.
 - 2026-08-25 — GitHub-aware rich Markdown parity implemented locally
 - 2026-08-25 — rich renderer browser acceptance passed at 390, 768, and 1440px
 - 2026-08-25 — owner-only moderation pilot approved pending production setup
+- 2026-08-25 — production D1 migrated and owner-only Worker deployed to workers.dev
 
 ## Products
 
@@ -44,7 +45,7 @@ domains, and multiple publishing repositories.
 - GitHub webhook ingestion endpoint
 - D1-backed read/search API
 
-## Features (implemented locally)
+## Features (deployed owner-only pilot)
 
 - Signed, repository-scoped, idempotent GitHub webhook ingestion
 - Repository-aware GitHub Markdown rendering during verified webhook/review
@@ -63,9 +64,8 @@ domains, and multiple publishing repositories.
 
 ## Todo / Planned / Deferred / Blocked
 
-1. Provision the approved Cloudflare resources and deploy the owner-only pilot.
-2. Configure the signed webhook and admin-review secrets without storing them
+1. Configure the signed webhook and admin-review secrets without storing them
    in source control.
-3. Run a live owner issue/edit/comment/reaction and rich-format acceptance pass.
-4. Switch `MODERATION_MODE` to `openai` and add `OPENAI_API_KEY` before opening
+2. Run a live owner issue/edit/comment/reaction and rich-format acceptance pass.
+3. Switch `MODERATION_MODE` to `openai` and add `OPENAI_API_KEY` before opening
    automatic publishing to other GitHub users.
