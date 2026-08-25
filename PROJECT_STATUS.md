@@ -36,6 +36,7 @@ domains, and multiple publishing repositories.
 - 2026-08-25 — owner delegated final visual approval; design review passed
 - 2026-08-25 — GitHub-aware rich Markdown parity implemented locally
 - 2026-08-25 — rich renderer browser acceptance passed at 390, 768, and 1440px
+- 2026-08-25 — owner-only moderation pilot approved pending production setup
 
 ## Products
 
@@ -52,6 +53,7 @@ domains, and multiple publishing repositories.
   selected GitHub HTML, MathML, lazy Mermaid, and explicit map/3D fallbacks
 - Retryable render holds that preserve the last known-good public revision
 - Fail-closed spam and OpenAI moderation pipeline with private review API
+- Explicit owner-only pilot mode that holds every non-owner submission pending
 - D1 public projection for issues, authors, labels, comments, and reactions
 - D1 FTS5 search and cursor pagination
 - Newest, updated, random, author, label, search, and archived page views
@@ -61,7 +63,9 @@ domains, and multiple publishing repositories.
 
 ## Todo / Planned / Deferred / Blocked
 
-1. Configure Cloudflare resources, secrets, and GitHub webhook only when
-   deployment is explicitly approved.
-2. Run a live issue/edit/comment/reaction and rich-format acceptance pass after
-   deployment.
+1. Provision the approved Cloudflare resources and deploy the owner-only pilot.
+2. Configure the signed webhook and admin-review secrets without storing them
+   in source control.
+3. Run a live owner issue/edit/comment/reaction and rich-format acceptance pass.
+4. Switch `MODERATION_MODE` to `openai` and add `OPENAI_API_KEY` before opening
+   automatic publishing to other GitHub users.

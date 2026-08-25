@@ -64,6 +64,18 @@ server-side MathML. Mermaid is a self-hosted browser module loaded only when an
 article contains a bounded Mermaid block. The OpenAI and GitHub APIs are called
 with plain `fetch`, avoiding runtime SDK dependencies.
 
+## Moderation modes
+
+- `openai` is the default and public-launch mode. Every otherwise-safe issue or
+  comment must pass the OpenAI Moderation API; a missing key or outage fails
+  closed into the pending queue.
+- `owner-only` is a temporary integration pilot. Only content authored by the
+  configured `GITHUB_OWNER` can bypass the external moderation call. All other
+  submissions are held pending and never publish automatically.
+
+Sanitization, spam checks, signature verification, repository verification,
+and the reserved `internal` label behave identically in both modes.
+
 ## GitHub formatting parity
 
 - GitHub-rendered: GFM, issue-style line breaks, tables, task lists, alerts,
@@ -92,13 +104,19 @@ Deployment is intentionally unconfigured. Before any approved deployment:
 
 2. Put its ID in `env.production.d1_databases[0].database_id` in
    `wrangler.jsonc`, and replace `PUBLIC_ORIGIN` with the final HTTPS origin.
-3. Add three required Worker secrets without storing their values in this
-   repository:
+3. Add the webhook and admin-review Worker secrets without storing their values
+   in this repository:
 
    ```sh
    pnpm exec wrangler secret put GITHUB_WEBHOOK_SECRET --env production
-   pnpm exec wrangler secret put OPENAI_API_KEY --env production
    pnpm exec wrangler secret put ADMIN_REVIEW_SECRET --env production
+   ```
+
+   The owner-only pilot intentionally runs without `OPENAI_API_KEY`. Before
+   changing `MODERATION_MODE` to `openai`, add it interactively:
+
+   ```sh
+   pnpm exec wrangler secret put OPENAI_API_KEY --env production
    ```
 
    GitHub's renderer supports this public repository without authentication.

@@ -30,7 +30,11 @@ const app = new Hono<AppEnv>();
 const pageSize = 12;
 
 function siteIdentity(env: AppBindings): SiteIdentity {
-  return { owner: env.GITHUB_OWNER, repo: env.GITHUB_REPO };
+  return {
+    owner: env.GITHUB_OWNER,
+    repo: env.GITHUB_REPO,
+    moderationMode: env.MODERATION_MODE === "owner-only" ? "owner-only" : "openai",
+  };
 }
 
 function securityHeaders(response: Response): Response {

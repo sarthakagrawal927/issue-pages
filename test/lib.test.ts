@@ -3,6 +3,7 @@ import { decodeCursor, encodeCursor } from "../src/lib/cursor";
 import { normalizeGitHubHtml } from "../src/lib/github-html";
 import { renderGitHubMarkdown } from "../src/lib/github-markdown";
 import { renderMarkdown } from "../src/lib/markdown";
+import { checkContentSafety } from "../src/lib/safety";
 import { detectSpam } from "../src/lib/spam";
 import { slugify } from "../src/lib/slug";
 import { verifyGitHubSignature } from "../src/lib/signature";
@@ -40,6 +41,55 @@ describe("content primitives", () => {
     );
     expect(detectSpam("A title", links, "issue")).toBe("link_heavy");
     expect(detectSpam("A title", "<!-- template guidance only -->", "issue")).toBe("missing_body");
+  });
+
+  it("allows only the repository owner while the moderation pilot is active", async () => {
+    const owner = await checkContentSafety(
+      undefined,
+      "A pilot page",
+      "Enough owner-authored content for the live pilot.",
+      "issue",
+      {
+        mode: "owner-only",
+        authorLogin: "SarthakAgrawal927",
+        ownerLogin: "sarthakagrawal927",
+      },
+    );
+    expect(owner).toMatchObject({
+      publishable: true,
+      moderation: { model: "owner-only-pilot", flagged: false },
+    });
+
+    const stranger = await checkContentSafety(
+      undefined,
+      "A held page",
+      "Enough non-owner content to reach the moderation gate.",
+      "issue",
+      {
+        mode: "owner-only",
+        authorLogin: "another-publisher",
+        ownerLogin: "sarthakagrawal927",
+      },
+    );
+    expect(stranger).toMatchObject({ publishable: false, failure: "owner_only_pilot" });
+  });
+
+  it("keeps normal OpenAI moderation fail-closed when the key is absent", async () => {
+    const result = await checkContentSafety(
+      undefined,
+      "A public page",
+      "Enough content to reach the external moderation gate.",
+      "issue",
+      {
+        mode: "openai",
+        authorLogin: "sarthakagrawal927",
+        ownerLogin: "sarthakagrawal927",
+      },
+    );
+    expect(result).toMatchObject({
+      publishable: false,
+      failure: "moderation_not_configured",
+    });
   });
 
   it("normalizes the GitHub issue authoring surface without executable HTML", () => {

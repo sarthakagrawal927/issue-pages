@@ -1,9 +1,10 @@
 import type { SearchRow } from "../data/repository";
-import type { ArticleListRow, ArticleRow, CommentRow, GitHubUser } from "../types";
+import type { ArticleListRow, ArticleRow, CommentRow, GitHubUser, ModerationMode } from "../types";
 
 export interface SiteIdentity {
   owner: string;
   repo: string;
+  moderationMode: ModerationMode;
 }
 
 interface LabelView {
@@ -191,6 +192,7 @@ export function homePage(
   newest: ArticleListRow[],
   updated: ArticleListRow[],
 ): string {
+  const ownerOnly = site.moderationMode === "owner-only";
   const board = newest.length
     ? `<ol class="dispatch-list">${newest.slice(0, 7).map(dispatchRow).join("")}</ol>`
     : `<div class="empty-dispatch"><strong>No public pages yet.</strong><br>Open the first issue and start the repository.</div>`;
@@ -212,12 +214,16 @@ export function homePage(
       <p class="eyebrow">A public publishing repository</p>
       <h1>This website is a GitHub repository<span class="stop">.</span></h1>
       <p class="hero-copy">Open an issue and leave your page on the internet. GitHub stays the editor, identity, and discussion; IssuePages makes it readable and discoverable.</p>
-      <a class="button" href="${publishHref(site)}" rel="external">Publish something <span aria-hidden="true">↗</span></a>
-      <p class="publish-trust">Uses your GitHub account. Safe pages appear automatically; held content waits for review.</p>
+      <a class="button" href="${publishHref(site)}" rel="external">${ownerOnly ? "Open a pilot issue" : "Publish something"} <span aria-hidden="true">↗</span></a>
+      ${
+        ownerOnly
+          ? `<p class="pilot-notice"><strong>Owner-only pilot.</strong> Pages from @${escapeHtml(site.owner)} publish automatically. Everyone else is held for review until public moderation is connected.</p>`
+          : '<p class="publish-trust">Uses your GitHub account. Safe pages appear automatically; held content waits for review.</p>'
+      }
       <ol class="steps" aria-label="How publishing works">
         <li><strong>Write</strong> Open an issue</li>
-        <li><strong>Check</strong> Safety review runs</li>
-        <li><strong>Read</strong> The page appears</li>
+        <li><strong>Check</strong> ${ownerOnly ? "Pilot access runs" : "Safety review runs"}</li>
+        <li><strong>Read</strong> ${ownerOnly ? "Owner pages appear" : "The page appears"}</li>
       </ol>
     </div>
     <section class="dispatch-board" aria-labelledby="live-board-title">

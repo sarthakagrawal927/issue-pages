@@ -10,6 +10,7 @@ export default defineConfig({
         bindings: {
           TEST_MIGRATIONS: await readD1Migrations(path.join(import.meta.dirname, "migrations")),
           GITHUB_WEBHOOK_SECRET: "test-webhook-secret",
+          MODERATION_MODE: "owner-only",
           OPENAI_API_KEY: "test-openai-key",
           ADMIN_REVIEW_SECRET: "test-admin-secret",
         },

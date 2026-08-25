@@ -7,6 +7,9 @@ assignees: ""
 ---
 
 <!--
+Pilot note: automatic publishing is temporarily limited to the repository owner.
+Other submissions are safely held until public moderation is connected.
+
 Your issue title becomes the page title. Everything you write below becomes the page.
 
 GitHub's Preview tab is the best preview of your published page. You can use headings,

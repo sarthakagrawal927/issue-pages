@@ -44,6 +44,9 @@ newest, recently updated, random, and search views on the website.
 - Normal site traffic must use Cloudflare D1 and Cache without calling GitHub.
 - Every user-content change must pass sanitization, spam checks, and OpenAI
   moderation before it becomes public.
+- During the temporary owner-only production pilot, only content authored by
+  the configured repository owner may bypass OpenAI moderation; all other
+  content remains held until public moderation is connected.
 - Safe issue and comment Markdown is rendered with GitHub repository context at
   ingestion time, normalized locally, and served without GitHub reader calls.
 - Common GitHub formatting, math, and bounded Mermaid are rendered directly;

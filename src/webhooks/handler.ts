@@ -31,6 +31,10 @@ import type {
 
 type AppContext = Context<{ Bindings: AppBindings }>;
 
+function moderationMode(env: AppBindings): "openai" | "owner-only" {
+  return env.MODERATION_MODE === "owner-only" ? "owner-only" : "openai";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -76,7 +80,17 @@ async function queueIssue(
   reason: string | null,
 ): Promise<void> {
   const body = payload.issue.body ?? "";
-  const safety = await checkContentSafety(c.env.OPENAI_API_KEY, payload.issue.title, body, "issue");
+  const safety = await checkContentSafety(
+    c.env.OPENAI_API_KEY,
+    payload.issue.title,
+    body,
+    "issue",
+    {
+      mode: moderationMode(c.env),
+      authorLogin: payload.issue.user.login,
+      ownerLogin: c.env.GITHUB_OWNER,
+    },
+  );
   if (safety.publishable) {
     let rendered: RenderedContent;
     try {
@@ -178,6 +192,11 @@ async function handleCommentEvent(c: AppContext, payload: CommentWebhookPayload)
     "",
     payload.comment.body,
     "comment",
+    {
+      mode: moderationMode(c.env),
+      authorLogin: payload.comment.user.login,
+      ownerLogin: c.env.GITHUB_OWNER,
+    },
   );
   if (safety.publishable) {
     let rendered: RenderedContent;

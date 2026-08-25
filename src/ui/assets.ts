@@ -48,6 +48,7 @@ main { min-height: 70vh; }
 .hero h1 .stop { color: var(--gold); }
 .hero-copy { max-width: 34rem; font-size: clamp(1rem, 1.4vw, 1.2rem); }
 .publish-trust { max-width: 31rem; margin: .75rem 0 0; color: var(--muted); font-size: .82rem; }
+.pilot-notice { max-width: 34rem; margin: .9rem 0 0; border: 1px solid var(--rule); background: #faf7ec; padding: .75rem .85rem; font-size: .84rem; }
 .button { min-height: 48px; display: inline-flex; align-items: center; justify-content: space-between; gap: 1.5rem; border: 1px solid var(--ink); padding: .8rem 1.05rem; background: var(--ink); color: var(--paper-bright); font: 800 .86rem/1 var(--display); letter-spacing: .035em; text-transform: uppercase; text-decoration: none; box-shadow: 3px 3px 0 var(--gold-soft); transition: transform .15s ease-out, box-shadow .15s ease-out; }
 .button:hover { transform: translate(1px,1px); box-shadow: 2px 2px 0 var(--gold-soft); }
 .button--light { background: var(--paper-bright); color: var(--ink); box-shadow: none; }

@@ -87,6 +87,8 @@ describe("public Worker routes", () => {
     const body = await response.text();
     expect(body).toContain("A tested public page");
     expect(body).toContain("This website is a GitHub repository");
+    expect(body).toContain("Owner-only pilot");
+    expect(body).toContain("Everyone else is held for review");
   });
 
   it("redirects the permanent issue URL and renders the canonical article", async () => {
@@ -134,9 +136,9 @@ describe("public Worker routes", () => {
         updated_at: "2026-08-25T11:00:00.000Z",
         user: {
           id: 10,
-          login: "rich-publisher",
+          login: "sarthakagrawal927",
           avatar_url: "https://avatars.githubusercontent.com/u/10?v=4",
-          html_url: "https://github.com/rich-publisher",
+          html_url: "https://github.com/sarthakagrawal927",
         },
         labels: [],
       },
@@ -150,6 +152,41 @@ describe("public Worker routes", () => {
     expect(article?.visibility).toBe("published");
     expect(article?.body_html).toContain("Published through <strong>GitHub</strong>");
     expect(article?.body_html).not.toContain("<script");
+  });
+
+  it("holds non-owner content during the owner-only pilot", async () => {
+    const payload = {
+      action: "opened",
+      repository: { id: 1345783913, full_name: "sarthakagrawal927/issue-pages" },
+      issue: {
+        id: 1_002,
+        number: 102,
+        title: "A stranger pilot page",
+        body: "This otherwise safe submission must wait for public moderation.",
+        html_url: "https://github.com/sarthakagrawal927/issue-pages/issues/102",
+        state: "open",
+        created_at: "2026-08-25T11:10:00.000Z",
+        updated_at: "2026-08-25T11:10:00.000Z",
+        user: {
+          id: 12,
+          login: "another-publisher",
+          avatar_url: "https://avatars.githubusercontent.com/u/12?v=4",
+          html_url: "https://github.com/another-publisher",
+        },
+        labels: [],
+      },
+    };
+    const response = await exports.default.fetch(await signedWebhook(payload, crypto.randomUUID()));
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toMatchObject({ ok: true, pending: true });
+    await expect(
+      env.DB.prepare(
+        "SELECT reviewer_note, status FROM pending_revisions WHERE entity_id = 1002",
+      ).first(),
+    ).resolves.toMatchObject({ reviewer_note: "owner_only_pilot", status: "pending" });
+    await expect(
+      env.DB.prepare("SELECT COUNT(*) AS count FROM articles WHERE issue_id = 1002").first(),
+    ).resolves.toMatchObject({ count: 0 });
   });
 
   it("holds a render failure and publishes it after a successful retry", async () => {
@@ -166,10 +203,10 @@ describe("public Worker routes", () => {
         created_at: "2026-08-25T11:30:00.000Z",
         updated_at: "2026-08-25T11:30:00.000Z",
         user: {
-          id: 11,
-          login: "retry-publisher",
-          avatar_url: "https://avatars.githubusercontent.com/u/11?v=4",
-          html_url: "https://github.com/retry-publisher",
+          id: 10,
+          login: "sarthakagrawal927",
+          avatar_url: "https://avatars.githubusercontent.com/u/10?v=4",
+          html_url: "https://github.com/sarthakagrawal927",
         },
         labels: [],
       },

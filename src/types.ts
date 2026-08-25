@@ -4,9 +4,12 @@ export type AppBindings = Omit<Env, "DB" | "SEARCH_RATE_LIMIT" | "VERSION_RATE_L
   VERSION_RATE_LIMIT: RateLimit;
   GITHUB_WEBHOOK_SECRET: string;
   GITHUB_RENDER_TOKEN?: string;
-  OPENAI_API_KEY: string;
+  MODERATION_MODE?: ModerationMode;
+  OPENAI_API_KEY?: string;
   ADMIN_REVIEW_SECRET: string;
 };
+
+export type ModerationMode = "openai" | "owner-only";
 
 export interface GitHubUser {
   id: number;
