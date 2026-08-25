@@ -11,7 +11,7 @@ community: open an issue and, after safety checks, it becomes a public page.
 small, personal pages without another account or publishing tool.
 
 **IN scope:** One public repository; issues as pages; edits, labels, comments,
-reactions, and archive state synchronized by webhooks; discovery; lexical
+reaction summaries, and archive state synchronized into D1; discovery; lexical
 search; moderation; cursor pagination; cached server-rendered pages.
 
 **OUT of scope:** Custom accounts or editor, private posts, direct on-site
@@ -38,6 +38,8 @@ domains, and multiple publishing repositories.
 - 2026-08-25 — rich renderer browser acceptance passed at 390, 768, and 1440px
 - 2026-08-25 — owner-only moderation pilot approved pending production setup
 - 2026-08-25 — production D1 migrated and owner-only Worker deployed to workers.dev
+- 2026-08-25 — signed production webhook and live issue/edit/close/reopen/search/cache acceptance passed
+- 2026-08-25 — production Chromium acceptance passed at 390px and 1440px
 
 ## Products
 
@@ -64,8 +66,12 @@ domains, and multiple publishing repositories.
 
 ## Todo / Planned / Deferred / Blocked
 
-1. Configure the signed webhook and admin-review secrets without storing them
-   in source control.
-2. Run a live owner issue/edit/comment/reaction and rich-format acceptance pass.
-3. Switch `MODERATION_MODE` to `openai` and add `OPENAI_API_KEY` before opening
+1. Add a fine-grained `GITHUB_RENDER_TOKEN` with read-only Contents permission,
+   then retry the two owner comments held after GitHub's Markdown endpoint
+   returned HTTP 403 from production.
+2. Add `ADMIN_REVIEW_SECRET` before using the private moderation-review API.
+3. Reconcile standalone reaction changes on a token-backed schedule. GitHub's
+   repository webhook catalog has no standalone reaction event; current totals
+   refresh when a later issue or comment payload carries GitHub's summary.
+4. Switch `MODERATION_MODE` to `openai` and add `OPENAI_API_KEY` before opening
    automatic publishing to other GitHub users.

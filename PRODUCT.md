@@ -33,7 +33,8 @@ than duplicating those systems.
 
 Visitors browse the public website, choose **Publish something**, write a title
 and Markdown body in GitHub, and submit the issue. GitHub webhooks synchronize
-safe issue edits, labels, comments, reactions, and closed state. Readers can
+safe issue edits, labels, comments, reaction summaries carried by those
+payloads, and closed state. Readers can
 follow the original issue for the canonical conversation or use author, label,
 newest, recently updated, random, and search views on the website.
 
@@ -57,6 +58,9 @@ newest, recently updated, random, and search views on the website.
 - Lists and search use cursor pagination; search is lexical D1 FTS5.
 - Near-real-time article refresh uses lightweight visible-tab polling, not
   WebSockets or Durable Objects.
+- GitHub repository webhooks do not emit a standalone reaction event. The MVP
+  needs token-backed scheduled reconciliation before reaction-only changes can
+  meet the automatic-update promise.
 - No custom accounts/editor, private posts, direct website comments,
   personalized feeds, semantic search, newsletters, payments, custom domains,
   multiple publishing repositories, or complex ranking in the MVP.

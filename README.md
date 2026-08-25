@@ -8,16 +8,15 @@ verifies GitHub webhooks, applies safety checks, stores a public projection in
 D1, and serves cached pages without calling GitHub during normal website
 traffic.
 
-The local MVP implements issue and comment ingestion, reactions, archive state,
+The deployed pilot implements issue and comment ingestion, reaction summaries, archive state,
 moderation holds and review, discovery, cursor pagination, D1 FTS5 search,
-revision-aware article caching, and visible-tab update polling. It has not been
-deployed or connected to a live webhook.
+revision-aware article caching, and visible-tab update polling.
 
 ## Architecture
 
 ```text
-GitHub issue / comment / reaction
-                ↓ signed webhook
+GitHub issue / comment
+          ↓ signed webhook
          Cloudflare Worker
                 ↓
  spam → moderation → GitHub GFM render
@@ -124,9 +123,10 @@ For a new environment or recovery deployment:
    pnpm exec wrangler secret put OPENAI_API_KEY --env production
    ```
 
-   GitHub's renderer supports this public repository without authentication.
-   For stronger production rate-limit reliability, optionally add a
-   fine-grained token with read-only Contents permission:
+   GitHub's renderer can accept unauthenticated requests, but the production
+   pilot observed HTTP 403 responses from Cloudflare's shared egress. Add a
+   fine-grained token with read-only Contents permission before accepting live
+   comments or depending on reliable edit ingestion:
 
    ```sh
    pnpm exec wrangler secret put GITHUB_RENDER_TOKEN --env production
@@ -140,8 +140,13 @@ For a new environment or recovery deployment:
 
 5. Create a GitHub repository webhook targeting
    `https://<origin>/webhooks/github`, use `application/json`, reuse the exact
-   `GITHUB_WEBHOOK_SECRET`, and subscribe to Issues, Issue comments, and
-   Reactions.
+   `GITHUB_WEBHOOK_SECRET`, and subscribe to Issues and Issue comments.
+
+GitHub does not expose a standalone repository `reaction` webhook event.
+Reaction totals included in later issue/comment payloads are projected, but a
+reaction by itself is not near-real-time in this release. Token-backed scheduled
+reconciliation is tracked separately; normal reader traffic will continue to
+avoid GitHub.
 
 The checked-in deploy command SHA-tags the Worker for provenance. Do not run it
 until the resource, secret, migration, and release steps are approved.
