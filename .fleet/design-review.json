@@ -2,7 +2,7 @@
   "$schema": "fleet.design-review.v1",
   "version": 1,
   "project": "issue-pages",
-  "target": "authored IssuePages public product system",
+  "target": "quiet IssuePages publication index and reading surface",
   "mode": "overhaul",
   "register": "brand",
   "context": {
@@ -11,79 +11,55 @@
   },
   "direction": {
     "references": [
-      "Common Thread quality bar - hand-pieced provenance topology",
-      "GitHub Issues - permanent numbers, author identity, and source discussion",
-      "Owner constraint - simple and clean execution over literal textile complexity"
+      "GitHub Issues - permanent issue numbers, author identity, and source discussion",
+      "Open-web publication indexes - content-led rows, reading measure, and plain provenance",
+      "Owner constraint - prefer a very simple interface over unearned visual complexity"
     ],
     "probes": [
       {
-        "id": "common-thread-the-join",
-        "path": ".fleet/probes/common-thread-the-join.png"
-      },
-      {
-        "id": "common-thread-common-field",
+        "id": "common-thread-common-field-rejected",
         "path": ".fleet/probes/common-thread-common-field.png"
       },
       {
-        "id": "common-thread-reading-window",
-        "path": ".fleet/probes/common-thread-reading-window.png"
+        "id": "the-index-home",
+        "path": "artifacts/design/simple-home-1440.png"
+      },
+      {
+        "id": "the-index-article",
+        "path": "artifacts/design/simple-article-1440.png"
       }
     ],
-    "selected": "common-thread-common-field",
+    "selected": "the-index-home",
     "approval": "approved",
-    "before": "artifacts/design/after-1440.jpg"
+    "before": "artifacts/design/simple-before-1440.png"
   },
   "evidence": {
     "screenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/common-thread-home-390-v2.png"
+        "path": "artifacts/design/simple-home-390.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/common-thread-home-768-v2.png"
+        "path": "artifacts/design/simple-home-768.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/common-thread-home-1440-v2.png"
+        "path": "artifacts/design/simple-home-1440.png"
       }
     ],
     "richRendererScreenshots": [
       {
         "width": 390,
-        "path": "artifacts/design/common-thread-article-390-v2.png"
+        "path": "artifacts/design/simple-article-390.png"
       },
       {
         "width": 768,
-        "path": "artifacts/design/common-thread-article-768-v2.png"
+        "path": "artifacts/design/simple-article-768.png"
       },
       {
         "width": 1440,
-        "path": "artifacts/design/common-thread-article-1440-v2.png"
-      }
-    ],
-    "universalReaderScreenshots": [
-      {
-        "width": 390,
-        "path": "artifacts/design/common-thread-reader-form-390.png"
-      },
-      {
-        "width": 768,
-        "path": "artifacts/design/common-thread-search-768.png"
-      },
-      {
-        "width": 1440,
-        "path": "artifacts/design/common-thread-reader-form-1440.png"
-      }
-    ],
-    "embedBuilderScreenshots": [
-      {
-        "width": 390,
-        "path": "artifacts/design/common-thread-embed-builder-390.png"
-      },
-      {
-        "width": 1440,
-        "path": "artifacts/design/common-thread-embed-builder-1440.png"
+        "path": "artifacts/design/simple-article-1440.png"
       }
     ],
     "projectCheck": {
@@ -91,11 +67,11 @@
       "status": "pass"
     },
     "critique": {
-      "score": 37,
+      "score": 32,
       "maximum": 40
     },
     "audit": {
-      "score": 20,
+      "score": 19,
       "maximum": 20
     },
     "unresolved": {
@@ -104,26 +80,18 @@
     },
     "detector": {
       "posture": "advisory",
-      "findings": [
-        {
-          "antipattern": "side-tab",
-          "severity": "warning",
-          "file": "src/ui/assets.ts",
-          "disposition": "resolved",
-          "note": "The legacy four-pixel Markdown alert edge was reduced to the one-pixel semantic seam used by the final system."
-        }
-      ]
+      "findings": []
     },
     "latestPass": {
       "date": "2026-08-26",
       "lane": "overhaul",
-      "surface": "homepage, article, universal reader, search, embed builder, and publication embed",
-      "browserEvidence": "Responsive screenshots inspected at 390, 768, and 1440 pixels; final homepage captures were refreshed after the contrast pass.",
-      "httpEvidence": "Local Worker returned 200 for the homepage and live public-repository embed; a white custom accent selected the dark contrast-safe foreground."
+      "surface": "homepage, article, search, universal reader, embed builder, and publication embed",
+      "browserEvidence": "Current local Worker inspected at 390, 768, and 1440 pixels. Homepage and article samples were captured with exact CDP viewport dimensions; search, reader, and embed builder had no mobile horizontal overflow or console errors.",
+      "httpEvidence": "Fresh isolated local D1 was migrated and seeded; homepage, article, search, reader, and embed routes returned and rendered successfully."
     }
   },
   "ownerFeedback": {
     "decision": "keep",
-    "note": "Owner selected Common Thread and explicitly constrained the build to a simple, clean execution over literal or complex textile effects on 2026-08-26."
+    "note": "Owner approved the responsive simple publication-index implementation for release on 2026-08-26."
   }
 }

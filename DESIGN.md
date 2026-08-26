@@ -1,94 +1,69 @@
 ---
 name: IssuePages
-description: A public collection whose pages stay visibly joined to their GitHub issues.
+description: A quiet publication index whose pages remain visibly connected to GitHub issues.
 ---
 
-# Design System: IssuePages
+# Design System: The Index
 
 ## Creative North Star
 
-**Common Thread** treats the repository as a shared field assembled by many
-authors. Every issue is a distinct typographic block; the seams between blocks
-carry provenance, updates, labels, and discussion. The system borrows the
-topology of a hand-pieced quilt, not literal fabric decoration.
+IssuePages should feel like a small, well-kept part of the open web. The interface
+recedes so titles, authors, issue numbers, and writing carry the identity. Its one
+recognizable device is the permanent issue number at the start of every row.
 
-The product must remain simpler than the reference world. It uses flat color,
-measured asymmetry, strong type, and one dashed seam rule. It does not simulate
-cloth, needles, patches, or handcraft in controls. The memorable product moment
-is seeing a numbered issue remain visibly connected to its public page.
+The product is not a SaaS landing page. It does not demonstrate the issue-to-page
+mechanism with diagrams or decorative UI. It states the mechanism once, offers one
+publishing action, and immediately shows real pages.
 
 ## Composition
 
-The homepage is a calm Common Field, not a marketing hero followed by feature
-cards. The mechanism statement, publishing action, newest pages, and recently
-updated pages occupy unequal but connected regions in one shared composition.
-Real issue titles and authors provide the variation.
+The site uses one centered column. The homepage flows from the publishing statement
+to newest pages, the universal-reader entry point, and recently updated pages. Page
+lists use rules and spacing rather than cards.
 
-Article pages open a quiet chalk reading folio inside the indigo field. The
-title, issue number, author, dates, labels, source, and archive state sit on the
-bound edge; Markdown and discussion receive the largest uninterrupted area.
-Discovery, search, the repository reader, and the embed builder reuse the same
-binding, field, folio, and seam grammar without reproducing the homepage grid.
+Articles use a narrower reading column. Title, issue number, author, dates, labels,
+state, and source precede the body; discussion follows it. Repository-reader and
+embed-builder surfaces use the same column, type, rules, inputs, and buttons.
 
-On phones, the field becomes an ordered vertical sequence. The reading order is
-mechanism, publish action, newest pages, repository reader, and updates. No
-desktop patch may become a tiny tile merely to preserve the composition.
+On phones the same order remains. Metadata moves below titles, controls become easy
+touch targets, and no core capability is hidden.
 
 ## Color
 
-The strategy is restrained full palette: indigo owns the shared public field;
-chalk owns reading and input surfaces; oxblood marks the action and active
-join; faded blue distinguishes secondary regions; near-black carries ink.
+The palette is neutral paper, ink, and one familiar web-blue link color.
 
-- Field indigo: `#17324a`
-- Deep indigo: `#102637`
-- Chalk: `#f7f1e5`
-- Clean paper: `#fffdf8`
-- Oxblood: `#9d2f2a`
-- Faded blue: `#6f8798`
-- Ink: `#182028`
-- Muted ink: `#59636a`
-- Stitch gold: `#c89b3c`, reserved for focus and exceptional state
+- Background: `#fbfbfa`
+- Surface: `#ffffff`
+- Text: `#1f2328`
+- Muted text: `#57606a`
+- Rules: `#d0d7de`
+- Link and focus: `#0969da`
+- Error: `#cf222e`
 
-Secondary text on a colored field is a tint of that field's foreground, never
-neutral gray. Oxblood is actionable or connective; it is not scattered accent.
+Color never substitutes for a state label. There are no gradients, themed fields,
+decorative textures, or multiple competing accent colors.
 
 ## Typography
 
-UI and metadata use the platform monospaced face because issue numbers,
-repository names, dates, labels, and state are source notation. Headlines use
-the same face at ordinary widths and humane sizes; they do not imitate stamped
-or handwritten lettering. Long-form prose uses Charter or the closest durable
-reading serif available on the platform.
-
-The body measure stays between 65 and 74 characters. Article type is never
-compressed to preserve the surrounding field. Uppercase appears only in short
-source/state labels, not as a universal section eyebrow.
+The interface and article body use the platform sans-serif stack. Issue numbers and
+short source notation use the platform monospace stack. The display hierarchy has
+few sizes, compact letter spacing, and a maximum reading measure of 72 characters.
 
 ## Components and States
 
-- A **block** is one meaningful region, not a generic card. Its size follows
-  content priority.
-- A **seam** is a 1px dashed boundary that indicates adjacency or provenance.
-  It is never used around every nested element.
-- A **binding** is a full-width indigo navigation or provenance band.
-- A **folio** is the clean article, form, or result surface.
-- The permanent issue number is the strongest compact identifier.
-- Published, archived, loading, stale, empty, and held states always include
-  text; color is supplementary.
-- Focus uses a gold outline with enough separation from both indigo and chalk.
-
-Controls are rectilinear with small corner softening only where the browser
-control benefits. Hover changes color or underline weight; nothing lifts or
-bounces. Motion is limited to the existing article/discussion update behavior.
+- An issue row begins with the permanent issue number, followed by title, author,
+  replies, and date.
+- A rule separates items; a card is reserved for contained user-generated content
+  such as Markdown details or alerts.
+- The primary button is dark ink. Links use the single blue accent.
+- Loading, stale, empty, archived, held, and error states always include text.
+- Focus uses the same blue accent with a visible offset.
 
 ## Avoid
 
-- Literal fabric photos, textile grain overlays, skeuomorphic stitches, or
-  decorative patch icons.
-- A giant slogan with an eyebrow, three-step explainer, showcase card, and
-  symmetric section stack.
-- Rounded card grids, pill collections, glass, gradients, glows, or fake
-  terminal chrome.
-- Monospace article prose or cramped metadata columns.
+- Decorative marks, glyph fields, seams, notches, patches, or product diagrams.
+- Dark technical styling borrowed from developer tools.
+- Large marketing sections, feature cards, or repeated explanations.
+- Serif-versus-monospace theatre, uppercase metadata, and invented brand language.
+- Shadows, gradients, glass, texture, or animation without a functional reason.
 - Making the embed fight its host page; the minimal embed remains host-neutral.

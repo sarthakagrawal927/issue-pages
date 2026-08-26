@@ -110,20 +110,13 @@ function repoHref(site: SiteIdentity): string {
   return `https://github.com/${encodeURIComponent(site.owner)}/${encodeURIComponent(site.repo)}`;
 }
 
-function header(site: SiteIdentity, reader = false): string {
+function header(site: SiteIdentity): string {
   return `<header class="site-header">
     <div class="site-header__inner">
-      <a class="brand" href="/" aria-label="IssuePages home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>IssuePages</span></a>
-      <span class="header-note">This website is a GitHub repository.</span>
+      <a class="brand" href="/" aria-label="IssuePages home">IssuePages</a>
       <nav class="site-nav" aria-label="Primary navigation">
-        <form class="search-mini" role="search" action="/search" method="get">
-          <label class="sr-only" for="site-search">Search published IssuePages</label>
-          <input id="site-search" name="q" type="search" placeholder="Search IssuePages" autocomplete="off">
-          <button type="submit" aria-label="Search">Go</button>
-        </form>
-        <a class="nav-link" href="/read"${reader ? ' aria-current="page"' : ""}>Read any repo</a>
-        <a class="nav-link" href="/random">Random</a>
-        <a class="nav-link" href="${publishHref(site)}" rel="external">Publish</a>
+        <a class="nav-link" href="/search">Search</a>
+        <a class="nav-link nav-link--primary" href="${publishHref(site)}" rel="external">Publish</a>
       </nav>
     </div>
   </header>`;
@@ -162,36 +155,20 @@ export function layout(
   <meta name="description" content="${escapeHtml(description)}">
   ${options.robots ? '<meta name="robots" content="noindex,nofollow,noarchive">' : ""}
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#17324a">
+  <meta name="theme-color" content="#fbfbfa">
   <title>${escapeHtml(pageTitle)}</title>
-  <link rel="stylesheet" href="/styles.css?v=20260826-7">
+  <link rel="stylesheet" href="/styles.css?v=20260826-10">
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
   ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260826-3"></script>' : ""}
   ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  ${header(site, options.reader)}
+  ${header(site)}
   <main id="main">${body}</main>
   ${footer(site)}
 </body>
 </html>`;
-}
-
-function status(article: Pick<ArticleListRow, "state">): string {
-  return article.state === "closed"
-    ? '<span class="dispatch-status dispatch-status--archived">Archived</span>'
-    : '<span class="dispatch-status">Published</span>';
-}
-
-function dispatchRow(article: ArticleListRow): string {
-  return `<li class="dispatch-item">
-    <a class="dispatch-number" href="${articleHref(article)}" aria-label="Open issue ${article.issue_number}">#${article.issue_number}</a>
-    <a class="dispatch-title" href="${articleHref(article)}">${escapeHtml(article.title)}</a>
-    <a class="dispatch-author" href="/authors/${encodeURIComponent(article.author_login)}">@${escapeHtml(article.author_login)}</a>
-    <span class="dispatch-date">${datetime(article.last_public_at)}</span>
-    ${status(article)}
-  </li>`;
 }
 
 function pageStrip(article: ArticleListRow, dateField: "published_at" | "last_public_at"): string {
@@ -212,60 +189,48 @@ export function homePage(
   updated: ArticleListRow[],
 ): string {
   const ownerOnly = site.moderationMode === "owner-only";
-  const board = newest.length
-    ? `<ol class="dispatch-list">${newest.slice(0, 7).map(dispatchRow).join("")}</ol>`
-    : `<div class="empty-dispatch"><strong>No public pages yet.</strong><br>Open the first issue and start the repository.</div>`;
+  const newestIds = new Set(newest.slice(0, 5).map((article) => article.issue_number));
+  const distinctUpdates = updated.filter((article) => !newestIds.has(article.issue_number));
   const newestList = newest.length
     ? newest
         .slice(0, 5)
         .map((article) => pageStrip(article, "published_at"))
         .join("")
-    : '<div class="empty-state">The newest-pages ledger is empty for now.</div>';
-  const updatedList = updated.length
-    ? updated
+    : '<div class="empty-state">No public pages yet.</div>';
+  const updatedList = distinctUpdates.length
+    ? distinctUpdates
         .slice(0, 5)
         .map((article) => pageStrip(article, "last_public_at"))
         .join("")
-    : '<div class="empty-state">Updates will appear here after published pages change.</div>';
+    : "";
 
   return `<section class="hero" aria-labelledby="home-title">
-    <div class="hero__message">
-      <p class="field-note">This website is a GitHub repository.</p>
-      <h1 id="home-title">Open an issue and leave your page on the internet.</h1>
-      <p class="hero-copy">Write in Markdown. The title, author, edits, labels, reactions, and discussion stay attached when the issue becomes a page.</p>
-      <div class="hero-actions"><a class="button" href="${publishHref(site)}" rel="external">${ownerOnly ? "Open a pilot issue" : "Publish something"} <span aria-hidden="true">↗</span></a><a class="text-link" href="${repoHref(site)}" rel="external">See the repository</a></div>
-      ${
-        ownerOnly
-          ? `<p class="pilot-notice"><strong>Owner-only pilot.</strong> Pages from @${escapeHtml(site.owner)} publish automatically. Everyone else is held for review until public moderation is connected.</p>`
-          : '<p class="publish-trust">Uses your GitHub account. Safe pages appear automatically; held content waits for review.</p>'
-      }
-    </div>
-    <section class="dispatch-board" aria-labelledby="live-board-title">
-      <div class="dispatch-board__head">
-        <h2 id="live-board-title">Newest pages</h2>
-        <span class="dispatch-board__legend">Joined to GitHub</span>
-      </div>
-      ${board}
-    </section>
+    <p class="field-note">This website is a GitHub repository.</p>
+    <h1 id="home-title">Open an issue and leave your page on the internet.</h1>
+    <p class="hero-copy">Write in Markdown. The issue becomes a public page, and its edits and discussion stay connected to GitHub.</p>
+    <div class="hero-actions"><a class="button" href="${publishHref(site)}" rel="external">${ownerOnly ? "Open a pilot issue" : "Publish something"} <span aria-hidden="true">↗</span></a><a class="text-link" href="${repoHref(site)}" rel="external">View the repository</a></div>
+    ${
+      ownerOnly
+        ? `<p class="pilot-notice"><strong>Owner-only pilot.</strong> Your GitHub issue is public immediately. Pages from @${escapeHtml(site.owner)} appear here automatically; everyone else waits here for review until public moderation is connected.</p>`
+        : '<p class="publish-trust">Your GitHub issue is public immediately. IssuePages publishes it after automated safety checks; anything held waits here for review.</p>'
+    }
+  </section>
+  <section class="section" aria-labelledby="newest-title">
+    <div class="section-head"><h2 id="newest-title">Newest pages</h2><a class="text-link" href="/pages/newest">Browse all</a></div>
+    <div class="listing">${newestList}</div>
   </section>
   <section class="reader-callout" aria-labelledby="reader-callout-title">
-    <div>
-      <p class="field-note">Beyond this experiment</p>
-      <h2 id="reader-callout-title">Any public repository can be read this way.</h2>
-    </div>
-    <p>Paste an <strong>owner/repository</strong> to open a read-only publication, or embed the paginated version on your own site.</p>
-    <div class="reader-callout__actions"><a class="button button--light" href="/read">Read a repository →</a><a class="text-link" href="/embed">Embed on your site ↗</a></div>
+    <div><h2 id="reader-callout-title">Read any public repository</h2><p>Turn its issues into a quiet, read-only publication.</p></div>
+    <div class="reader-callout__actions"><a class="text-link" href="/read">Open a repository →</a><a class="text-link" href="/embed">Embed one →</a></div>
   </section>
-  <section class="section section--split">
-    <div>
-      <div class="section-head"><h2>Newest</h2><a class="text-link" href="/pages/newest">Browse all →</a></div>
-      ${newestList}
-    </div>
-    <div>
-      <div class="section-head"><h2>Recently updated</h2><a class="text-link" href="/pages/updated">Browse updates →</a></div>
-      ${updatedList}
-    </div>
-  </section>`;
+  ${
+    updatedList
+      ? `<section class="section" aria-labelledby="updated-title">
+    <div class="section-head"><h2 id="updated-title">Recently updated</h2><a class="text-link" href="/pages/updated">Browse updates</a></div>
+    <div class="listing">${updatedList}</div>
+  </section>`
+      : ""
+  }`;
 }
 
 function labelLinks(labelsJson: string | null): string {
@@ -322,11 +287,6 @@ export function articlePage(article: ArticleRow, comments: CommentRow[]): string
     </aside>
     <article class="article-pane">
       ${archived ? '<div class="archive-notice"><strong>Archived page.</strong> The source issue is closed; this page remains available as a record.</div>' : ""}
-      <div class="article-route">
-        <span class="article-route__number">#${article.issue_number}</span>
-        <a class="article-route__source" href="${escapeHtml(article.github_url)}" rel="external">Original issue</a>
-        <span class="article-route__status${archived ? " article-route__status--archived" : ""}">${archived ? "Archived" : "Published"}</span>
-      </div>
       <div class="prose">${article.body_html}</div>
       ${reactionList(article.reactions_json, "Article", article.github_url)}
       <section class="discussion" aria-labelledby="discussion-title">
@@ -391,7 +351,7 @@ export function searchPage(query: string, rows: SearchRow[], nextHref: string | 
     <h1 class="listing-title">Search</h1>
     <form class="search-form" role="search" action="/search" method="get">
       <label class="sr-only" for="search-query">Search all public content</label>
-      <input id="search-query" name="q" type="search" value="${escapeHtml(query)}" placeholder="Words, authors, or labels" autofocus>
+      <input id="search-query" name="q" type="search" value="${escapeHtml(query)}" placeholder="Words, authors, or labels">
       <button type="submit">Search</button>
     </form>
     <div aria-live="polite">${results}</div>
@@ -584,11 +544,6 @@ export function publicIssueReaderPage(result: PublicIssuePage): string {
     <article class="article-pane">
       ${freshnessNotice(result.stale, result.cachedAt)}
       ${archived ? '<div class="archive-notice"><strong>Closed issue.</strong> This read-only page remains available while GitHub exposes the source.</div>' : ""}
-      <div class="article-route">
-        <span class="article-route__number">#${issue.number}</span>
-        <a class="article-route__source" href="${escapeHtml(issue.githubUrl)}" rel="external">Original issue</a>
-        <span class="article-route__status${archived ? " article-route__status--archived" : ""}">${archived ? "Closed" : "Open"}</span>
-      </div>
       <div class="prose">${issue.bodyHtml || '<p class="empty-state">This issue has no body.</p>'}</div>
       ${reactionList(JSON.stringify(issue.reactions), "Issue", issue.githubUrl)}
       <section class="discussion" aria-labelledby="discussion-title">

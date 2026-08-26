@@ -253,7 +253,8 @@ describe("public Worker routes", () => {
     expect(body).toContain("A tested public page");
     expect(body).toContain("This website is a GitHub repository");
     expect(body).toContain("Owner-only pilot");
-    expect(body).toContain("Everyone else is held for review");
+    expect(body).toContain("Your GitHub issue is public immediately");
+    expect(body).toContain("everyone else waits here for review");
     expect(body).toContain('href="/embed"');
   });
 
