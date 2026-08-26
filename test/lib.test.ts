@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { articleCacheKey } from "../src/lib/cache";
 import { decodeCursor, encodeCursor } from "../src/lib/cursor";
 import {
   embedAccentForeground,
@@ -26,6 +27,12 @@ afterEach(() => {
 });
 
 describe("content primitives", () => {
+  it("namespaces rendered article caches by schema", () => {
+    expect(articleCacheKey("https://example.com", 42, 3).url).toBe(
+      "https://example.com/__cache/articles/v2/42/3",
+    );
+  });
+
   it("chooses a contrast-safe foreground for embed accents", () => {
     expect(embedAccentForeground("#ffffff")).toBe("#000000");
     expect(embedAccentForeground("#000000")).toBe("#ffffff");
