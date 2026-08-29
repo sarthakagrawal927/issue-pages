@@ -1,0 +1,40 @@
+{
+  "$schema": "fleet.landing-audit.v1",
+  "project": "issue-pages",
+  "priority": "P4",
+  "decision": "Active",
+  "auditedAt": "2026-08-29",
+  "candidateUrl": "https://predicted-recognize-bridge-knowledgestorm.trycloudflare.com/",
+  "productionUrl": "https://issues.sarthakagrawal.dev/",
+  "releaseState": "Local Worker candidate qualified; metadata, agent surfaces, sitemap, CSP, and fleet-footer repairs are not deployed by this audit.",
+  "implementationAction": "preserve",
+  "migrationCandidate": false,
+  "gates": {
+    "contentPurpose": {
+      "score": 100,
+      "status": "pass",
+      "evidence": "The first viewport states the mechanism in plain language: this website is a GitHub repository, opening an issue leaves a page on the internet, and edits and discussion remain connected to GitHub. The owner-only pilot notice accurately limits the current publishing state."
+    },
+    "designQuality": {
+      "score": 96,
+      "status": "pass",
+      "evidence": "The quiet publication-index system is purpose-built rather than a generic SaaS shell. Strong type hierarchy, permanent issue numbers, restrained rules, and readable metadata remain coherent at 390 and 1440 pixels with no overflow or console errors. Both required fleet footer elements render."
+    },
+    "seo": {
+      "score": 97,
+      "status": "pass",
+      "evidence": "All 14 critical homepage checks pass after adding canonical, Open Graph, Twitter, GitHub-backed social imagery, and WebSite JSON-LD. A dynamic sitemap now includes public product and article routes. Advisories: the concise homepage is about 166 words, and dynamic author and label routes are discoverable but not yet enumerated in the sitemap."
+    },
+    "geo": {
+      "score": 90,
+      "status": "pass-with-advisory",
+      "evidence": "The candidate now serves truthful llms.txt, /api/ai, robots.txt, index.md, homepage Markdown negotiation, sitemap, and JSON-LD. The tunnel audit reports A-tier 67 because its canonical machine URLs correctly use the production hostname, which the preview scanner treats as foreign. Full Markdown coverage for every dynamic sitemap route is deferred at P4."
+    },
+    "performance": {
+      "score": 99,
+      "status": "pass",
+      "evidence": "PSI Swarm completed 4/4 profiles with weighted LCP 0.640 s, mobile-slow 1.877 s, mobile-mid 0.828 s, mobile-fast 0.425 s, desktop 0.248 s, CLS 0, TBT 0, and no actionable Lighthouse opportunities."
+    }
+  },
+  "minimumObserved": 90
+}
