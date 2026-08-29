@@ -215,12 +215,20 @@ For a new environment or recovery deployment:
    `https://<origin>/webhooks/github`, use `application/json`, reuse the exact
    `GITHUB_WEBHOOK_SECRET`, and subscribe to Issues and Issue comments.
 
-GitHub does not expose a standalone repository `reaction` webhook event.
-Reaction totals included in later issue/comment payloads are projected, but a
-reaction by itself is not near-real-time in this release. Token-backed scheduled
-reconciliation is tracked separately; canonical publishing-reader traffic will
-continue to avoid GitHub. Only the explicitly namespaced universal reader calls
-GitHub during a page request.
+GitHub does not expose a standalone repository `reaction` webhook event, so a
+reaction-only change never reaches the webhook endpoint. A cron trigger
+(`*/15 * * * *`, declared at the top level and again under `env.production`,
+because Wrangler environments do not inherit `triggers`) runs the scheduled
+handler in `src/scheduled/reactions.ts`. It reads a durable cursor from
+`sync_state`, reconciles a bounded batch of published issue and comment reaction
+summaries with `GITHUB_RENDER_TOKEN` and conditional `If-None-Match` requests,
+and bumps the public revision only for articles whose summary actually changed.
+Reconciliation is eventual, not instant: a reaction becomes public on the next
+run that reaches its article. Without the secret the run skips and logs
+`reaction_sync_skipped`; on a rate limit or GitHub outage the last known-good
+counts stay in place and the cursor is left retryable. Canonical
+publishing-reader traffic still never calls GitHub. Only the explicitly
+namespaced universal reader calls GitHub during a page request.
 
 The checked-in deploy command SHA-tags the Worker for provenance. Do not run it
 until the resource, secret, migration, and release steps are approved.
