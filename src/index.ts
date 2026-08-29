@@ -57,6 +57,32 @@ import { handleGitHubWebhook } from "./webhooks/handler";
 type AppEnv = { Bindings: AppBindings };
 const app = new Hono<AppEnv>();
 const pageSize = 12;
+const publicOrigin = "https://issues.sarthakagrawal.dev";
+const homepageMarkdown = `# IssuePages
+
+> Open a GitHub issue and leave your page on the internet.
+
+IssuePages turns approved issues from one public publishing repository into readable, searchable pages. GitHub remains the editor, identity, discussion system, and source of truth.
+
+The production site is currently an owner-only pilot. Issues from other authors remain on GitHub and wait for review until public moderation and authenticated rendering are connected.
+
+## Public surfaces
+
+- [Homepage](${publicOrigin}/): Browse the publishing pilot.
+- [Newest pages](${publicOrigin}/pages/newest): Browse published pages by date.
+- [Read a repository](${publicOrigin}/read): Open an uncatalogued, read-only view of issues from any public GitHub repository.
+- [Embed a repository](${publicOrigin}/embed): Build a sandboxed publication embed.
+- [Source repository](https://github.com/sarthakagrawal927/issue-pages): Inspect the product and publishing source.
+`;
+
+function escapeXml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
 
 function siteIdentity(env: AppBindings): SiteIdentity {
   return {
@@ -70,7 +96,7 @@ function securityHeaders(response: Response, embeddable = false): Response {
   const headers = new Headers(response.headers);
   headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors ${embeddable ? "https: http:" : "'none'"}; base-uri 'none'; form-action 'self'`,
+    `default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://sassmaker.com https://static.cloudflareinsights.com; connect-src 'self' https://sassmaker.com https://cloudflareinsights.com; frame-ancestors ${embeddable ? "https: http:" : "'none'"}; base-uri 'none'; form-action 'self'`,
   );
   headers.set("Cross-Origin-Opener-Policy", "same-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
@@ -91,7 +117,7 @@ app.use("*", async (c, next) => {
 });
 
 function html(c: Context<AppEnv>, title: string, body: string): Response {
-  const response = c.html(layout(siteIdentity(c.env), title, body));
+  const response = c.html(layout(siteIdentity(c.env), title, body, { canonicalPath: c.req.path }));
   response.headers.set(
     "Cache-Control",
     "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
@@ -143,6 +169,7 @@ function readerHtml(
   const status = options.status ?? 200;
   const response = c.html(
     layout(siteIdentity(c.env), title, body, {
+      canonicalPath: c.req.path,
       description: "Read public GitHub issues as clean, read-only pages.",
       reader: true,
       ...(options.readerClient === undefined ? {} : { readerClient: options.readerClient }),
@@ -283,7 +310,94 @@ app.get("/healthz", (c) =>
   c.json({ ok: true, service: "issue-pages" }, 200, { "Cache-Control": "no-store" }),
 );
 
+app.get("/robots.txt", (c) =>
+  c.text(
+    `User-agent: *\nAllow: /\nSitemap: ${publicOrigin}/sitemap.xml\n# Agent indexing\nAllow: /llms.txt\nAllow: /index.md\nAllow: /api/ai\n`,
+    200,
+    { "Cache-Control": "public, max-age=3600" },
+  ),
+);
+
+app.get("/llms.txt", (c) =>
+  c.text(
+    `# IssuePages\n\n> A GitHub issue becomes a readable, searchable public page.\n\n## Product\n\n- [Home](${publicOrigin}/): Browse the owner-only publishing pilot\n- [Newest pages](${publicOrigin}/pages/newest): Browse published pages by date\n- [Read any public repository](${publicOrigin}/read): Open an uncatalogued read-only issue publication\n- [Embed a repository](${publicOrigin}/embed): Build a sandboxed publication embed\n\n## Machine surfaces\n\n- [Agent catalog](${publicOrigin}/api/ai): JSON inventory of public surfaces\n- [Homepage markdown](${publicOrigin}/index.md): Product brief without JavaScript\n- [Sitemap](${publicOrigin}/sitemap.xml): Canonical indexed pages\n\n## Current limitation\n\nThe indexed publishing repository is an owner-only pilot. Public moderation and authenticated GitHub rendering are not connected yet.\n`,
+    200,
+    { "Cache-Control": "public, max-age=3600" },
+  ),
+);
+
+app.get("/index.md", (c) =>
+  c.body(homepageMarkdown, 200, {
+    "Cache-Control": "public, max-age=3600",
+    "Content-Type": "text/markdown; charset=utf-8",
+  }),
+);
+
+app.get("/api/ai", (c) =>
+  c.json(
+    {
+      name: "IssuePages",
+      version: "1",
+      url: publicOrigin,
+      llms: `${publicOrigin}/llms.txt`,
+      sitemap: `${publicOrigin}/sitemap.xml`,
+      robots: `${publicOrigin}/robots.txt`,
+      markdown: { suffix: ".md", negotiation: true },
+      surfaces: [
+        {
+          id: "home",
+          url: `${publicOrigin}/`,
+          md: `${publicOrigin}/index.md`,
+          kind: "static",
+          description: "Owner-only issue-to-page publishing pilot",
+        },
+      ],
+      auth: {
+        public: true,
+        notes:
+          "Publishing is owner-only; browsing and the universal public-repository reader are public.",
+      },
+    },
+    200,
+    { "Cache-Control": "public, max-age=3600" },
+  ),
+);
+
+app.get("/sitemap.xml", async (c) => {
+  const articles = await listArticles(c.env.DB, {
+    sort: "updated",
+    limit: 1000,
+    cursor: null,
+    includeArchived: true,
+  });
+  const staticUrls = ["/", "/pages/newest", "/pages/updated", "/embed"];
+  const entries = [
+    ...staticUrls.map((path) => ({ loc: `${publicOrigin}${path}`, lastmod: null })),
+    ...articles.map((article) => ({
+      loc: `${publicOrigin}/articles/${article.issue_number}/${encodeURIComponent(article.slug)}`,
+      lastmod: article.last_public_at,
+    })),
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries
+    .map(
+      ({ loc, lastmod }) =>
+        `  <url><loc>${escapeXml(loc)}</loc>${lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : ""}</url>`,
+    )
+    .join("\n")}\n</urlset>\n`;
+  return c.body(xml, 200, {
+    "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
+    "Content-Type": "application/xml; charset=utf-8",
+  });
+});
+
 app.get("/", async (c) => {
+  const accept = c.req.header("Accept")?.toLowerCase() ?? "";
+  if (accept.includes("text/markdown") && !accept.startsWith("text/html")) {
+    return c.body(homepageMarkdown, 200, {
+      "Content-Type": "text/markdown; charset=utf-8",
+      Link: '</index.md>; rel="alternate"; type="text/markdown"',
+    });
+  }
   const [newest, updated] = await Promise.all([
     listArticles(c.env.DB, { sort: "newest", limit: 7, cursor: null, includeArchived: true }),
     listArticles(c.env.DB, { sort: "updated", limit: 5, cursor: null, includeArchived: true }),

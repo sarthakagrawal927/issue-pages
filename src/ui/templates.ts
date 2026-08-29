@@ -1,5 +1,6 @@
 import type { SearchRow } from "../data/repository";
 import type { EmbedOptions } from "../lib/embed";
+import { safeJson } from "../lib/html";
 import type {
   PublicComment,
   PublicIssueDiscussion,
@@ -136,6 +137,7 @@ export function layout(
   title: string,
   body: string,
   options: {
+    canonicalPath?: string;
     description?: string;
     mermaid?: boolean;
     polling?: boolean;
@@ -147,6 +149,23 @@ export function layout(
   const pageTitle = title === "IssuePages" ? title : `${title} · IssuePages`;
   const description =
     options.description ?? "Open a GitHub issue and leave a public page on the internet.";
+  const canonical = options.canonicalPath
+    ? new URL(options.canonicalPath, "https://issues.sarthakagrawal.dev").toString()
+    : null;
+  const socialImage =
+    "https://opengraph.githubassets.com/issue-pages/sarthakagrawal927/issue-pages";
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": title === "IssuePages" ? "WebSite" : "WebPage",
+    name: pageTitle,
+    description,
+    ...(canonical ? { url: canonical } : {}),
+    isPartOf: {
+      "@type": "WebSite",
+      name: "IssuePages",
+      url: "https://issues.sarthakagrawal.dev/",
+    },
+  };
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -157,6 +176,18 @@ export function layout(
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#fbfbfa">
   <title>${escapeHtml(pageTitle)}</title>
+  ${canonical ? `<link rel="canonical" href="${escapeHtml(canonical)}">` : ""}
+  <meta property="og:title" content="${escapeHtml(pageTitle)}">
+  <meta property="og:description" content="${escapeHtml(description)}">
+  <meta property="og:type" content="website">
+  ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">` : ""}
+  <meta property="og:site_name" content="IssuePages">
+  <meta property="og:image" content="${socialImage}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${escapeHtml(pageTitle)}">
+  <meta name="twitter:description" content="${escapeHtml(description)}">
+  <meta name="twitter:image" content="${socialImage}">
+  <script type="application/ld+json">${safeJson(schema)}</script>
   <link rel="stylesheet" href="/styles.css?v=20260826-10">
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
   ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260826-3"></script>' : ""}
@@ -167,6 +198,8 @@ export function layout(
   ${header(site)}
   <main id="main">${body}</main>
   ${footer(site)}
+  <script src="https://sassmaker.com/project-strip.js" data-project="issue-pages" defer></script>
+  <script src="https://sassmaker.com/ai-chat-footer.js" data-name="IssuePages" data-compose="false" defer></script>
 </body>
 </html>`;
 }
