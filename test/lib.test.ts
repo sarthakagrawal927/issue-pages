@@ -219,6 +219,7 @@ describe("content primitives", () => {
   it("normalizes the GitHub issue authoring surface without executable HTML", () => {
     const rendered = normalizeGitHubHtml(parityGitHubHtml, {
       sourceUrl: "https://github.com/sarthakagrawal927/issue-pages/issues/2",
+      baseUrl: "https://github.com/sarthakagrawal927/issue-pages/blob/HEAD/",
     });
     expect(rendered.features).toEqual({
       mermaid: true,
@@ -236,7 +237,7 @@ describe("content primitives", () => {
     expect(rendered.html).toContain('id="issuepages-user-content-fn-1"');
     expect(rendered.html).toContain('href="#issuepages-user-content-fn-1"');
     expect(rendered.html).toContain(
-      'href="https://github.com/sarthakagrawal927/issue-pages/issues/docs/guide.md"',
+      'href="https://github.com/sarthakagrawal927/issue-pages/blob/HEAD/docs/guide.md"',
     );
     expect(rendered.html).not.toContain("<h1");
     expect(rendered.html).not.toContain("math-renderer");
@@ -245,6 +246,44 @@ describe("content primitives", () => {
     expect(rendered.html).not.toContain("<script");
     expect(rendered.html).not.toContain("<style");
     expect(rendered.html).not.toContain("<iframe");
+  });
+
+  it("resolves relative links and media against the repository, not the issue URL", () => {
+    const rendered = normalizeGitHubHtml(
+      [
+        '<p><a href="docs/guide.md">relative link</a></p>',
+        '<p><a href="./nested/../other.md">dot relative link</a></p>',
+        '<p><a href="/sarthakagrawal927/issue-pages/wiki">root relative link</a></p>',
+        '<p><a href="https://example.com/absolute">absolute link</a></p>',
+        '<p><a href="//example.com/protocol-relative">protocol relative link</a></p>',
+        '<p><a href="#section">anchor link</a></p>',
+        '<p><a href="mailto:hello@example.com">mail link</a></p>',
+        '<p><img src="assets/diagram.png" alt="Diagram"></p>',
+        '<p><img src="//example.com/protocol.png" alt="Protocol"></p>',
+        '<picture><source srcset="assets/dark.png 1x, media/dark@2x.png 2x">',
+        '<img src="https://example.com/light.png" alt="Themed"></picture>',
+      ].join("\n"),
+      {
+        sourceUrl: "https://github.com/sarthakagrawal927/issue-pages/issues/2",
+        baseUrl: "https://github.com/sarthakagrawal927/issue-pages/blob/HEAD/",
+      },
+    );
+
+    const blob = "https://github.com/sarthakagrawal927/issue-pages/blob/HEAD";
+    expect(rendered.html).toContain(`href="${blob}/docs/guide.md"`);
+    expect(rendered.html).toContain(`href="${blob}/other.md"`);
+    expect(rendered.html).toContain('href="https://github.com/sarthakagrawal927/issue-pages/wiki"');
+    expect(rendered.html).toContain('href="https://example.com/absolute"');
+    expect(rendered.html).toContain('href="https://example.com/protocol-relative"');
+    expect(rendered.html).toContain('href="#section"');
+    expect(rendered.html).toContain('href="mailto:hello@example.com"');
+    expect(rendered.html).toContain(`src="${blob}/assets/diagram.png"`);
+    expect(rendered.html).toContain('src="https://example.com/protocol.png"');
+    expect(rendered.html).toContain(
+      `srcset="${blob}/assets/dark.png 1x, ${blob}/media/dark@2x.png 2x"`,
+    );
+    expect(rendered.html).toContain('src="https://example.com/light.png"');
+    expect(rendered.html).not.toContain("/issues/docs/guide.md");
   });
 
   it("uses GitHub's repository-aware renderer and then normalizes its HTML", async () => {
