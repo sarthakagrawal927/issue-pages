@@ -26,6 +26,7 @@ import {
   type PublicRepository,
   parsePublicRepository,
 } from "./lib/github-reader";
+import { scheduled } from "./scheduled/reactions";
 import type { AppBindings, ArticleListRow } from "./types";
 import { articlePollingScript, styles } from "./ui/assets";
 import {
@@ -1167,4 +1168,4 @@ app.onError((error, c) => {
   );
 });
 
-export default app;
+export default { fetch: app.fetch, scheduled } satisfies ExportedHandler<AppBindings>;

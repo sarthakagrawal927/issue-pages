@@ -5,7 +5,6 @@ import type {
   GitHubComment,
   GitHubIssue,
   GitHubLabel,
-  GitHubReaction,
   GitHubReactionSummary,
   GitHubUser,
   RenderedContent,
@@ -96,7 +95,7 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function normalizeReactionSummary(summary: GitHubReactionSummary | undefined): string {
+export function normalizeReactionSummary(summary: GitHubReactionSummary | undefined): string {
   const normalized: Record<string, number> = {};
   for (const key of [
     "+1",
@@ -616,77 +615,6 @@ export async function deleteCommentProjection(
   };
 }
 
-export async function applyReactionProjection(
-  db: D1Database,
-  action: "created" | "deleted",
-  reaction: GitHubReaction,
-  issue: GitHubIssue | undefined,
-  comment: GitHubComment | undefined,
-): Promise<ArticleMutation | null> {
-  const articleId = issue?.id ?? null;
-  let resolvedArticleId = articleId;
-  if (!resolvedArticleId && comment) {
-    const parent = await db
-      .prepare("SELECT article_id FROM comments WHERE github_id = ?")
-      .bind(comment.id)
-      .first<{ article_id: number }>();
-    resolvedArticleId = parent?.article_id ?? null;
-  }
-  if (!resolvedArticleId) return null;
-  const article = await getArticleByIssueId(db, resolvedArticleId);
-  if (article?.visibility !== "published") return null;
-
-  const timestamp = nowIso();
-  const revision = article.public_revision + 1;
-  const statements: D1PreparedStatement[] = [];
-  if (action === "created") {
-    statements.push(
-      db
-        .prepare(
-          `INSERT OR IGNORE INTO reactions
-           (github_id, article_id, comment_id, user_id, content, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          reaction.id,
-          comment ? null : resolvedArticleId,
-          comment?.id ?? null,
-          reaction.user.id,
-          reaction.content,
-          reaction.created_at,
-        ),
-    );
-  } else {
-    statements.push(db.prepare("DELETE FROM reactions WHERE github_id = ?").bind(reaction.id));
-  }
-  if (comment) {
-    statements.push(
-      db
-        .prepare("UPDATE comments SET reactions_json = ? WHERE github_id = ?")
-        .bind(normalizeReactionSummary(comment.reactions), comment.id),
-    );
-  } else if (issue) {
-    statements.push(
-      db
-        .prepare("UPDATE articles SET reactions_json = ? WHERE issue_id = ?")
-        .bind(normalizeReactionSummary(issue.reactions), issue.id),
-    );
-  }
-  statements.push(
-    db
-      .prepare("UPDATE articles SET last_public_at = ?, public_revision = ? WHERE issue_id = ?")
-      .bind(timestamp, revision, resolvedArticleId),
-  );
-  await db.batch(statements);
-  return {
-    issueNumber: article.issue_number,
-    previousSlug: article.slug,
-    slug: article.slug,
-    previousRevision: article.public_revision,
-    revision,
-  };
-}
-
 export async function queuePendingRevision(
   db: D1Database,
   input: PendingRevisionInput,
@@ -866,4 +794,288 @@ export async function getLabel(
     .prepare("SELECT name, slug, color, description FROM labels WHERE slug = ? COLLATE NOCASE")
     .bind(slug)
     .first<{ name: string; slug: string; color: string; description: string | null }>();
+}
+
+export interface SyncCursor {
+  cursorIssueId: number;
+  cursorCommentId: number;
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  detail: string | null;
+}
+
+export interface SyncCursorInput {
+  cursorIssueId: number;
+  cursorCommentId: number;
+  status: string;
+  detail: string | null;
+}
+
+const emptyCursor: SyncCursor = {
+  cursorIssueId: 0,
+  cursorCommentId: 0,
+  lastRunAt: null,
+  lastStatus: null,
+  detail: null,
+};
+
+export async function readSyncCursor(db: D1Database, key: string): Promise<SyncCursor> {
+  const row = await db
+    .prepare(
+      `SELECT cursor_issue_id, cursor_comment_id, last_run_at, last_status, detail
+       FROM sync_state WHERE key = ?`,
+    )
+    .bind(key)
+    .first<{
+      cursor_issue_id: number;
+      cursor_comment_id: number;
+      last_run_at: string | null;
+      last_status: string | null;
+      detail: string | null;
+    }>();
+  if (!row) return emptyCursor;
+  return {
+    cursorIssueId: row.cursor_issue_id,
+    cursorCommentId: row.cursor_comment_id,
+    lastRunAt: row.last_run_at,
+    lastStatus: row.last_status,
+    detail: row.detail,
+  };
+}
+
+export async function writeSyncCursor(
+  db: D1Database,
+  key: string,
+  input: SyncCursorInput,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO sync_state
+         (key, cursor_issue_id, cursor_comment_id, last_run_at, last_status, detail)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         cursor_issue_id = excluded.cursor_issue_id,
+         cursor_comment_id = excluded.cursor_comment_id,
+         last_run_at = excluded.last_run_at,
+         last_status = excluded.last_status,
+         detail = excluded.detail`,
+    )
+    .bind(key, input.cursorIssueId, input.cursorCommentId, nowIso(), input.status, input.detail)
+    .run();
+}
+
+export interface ReactionTarget {
+  kind: "issue" | "comment";
+  /** Owning published article. */
+  issueId: number;
+  issueNumber: number;
+  /** Issue number for issue targets, comment id for comment targets. */
+  targetId: number;
+  reactionsJson: string;
+  etag: string | null;
+}
+
+export interface ReactionTargetPage {
+  targets: ReactionTarget[];
+  /** Cursor for the next run; `null` means the scan wrapped back to the start. */
+  next: { issueId: number; commentId: number } | null;
+}
+
+/**
+ * Returns a bounded, ordered slice of reconciliation targets.
+ *
+ * Ordering is `(article issue_id, 0 for the issue itself, then comment github_id)`,
+ * so `(cursorIssueId, cursorCommentId)` names the next unprocessed position.
+ */
+export async function listPublishedReactionTargets(
+  db: D1Database,
+  options: {
+    cursorIssueId: number;
+    cursorCommentId: number;
+    maxArticles: number;
+    maxItems: number;
+  },
+): Promise<ReactionTargetPage> {
+  const { cursorIssueId, cursorCommentId, maxArticles, maxItems } = options;
+  const articles = await db
+    .prepare(
+      `SELECT issue_id, issue_number, reactions_json, reactions_etag
+       FROM articles
+       WHERE visibility = 'published' AND issue_id >= ?
+       ORDER BY issue_id
+       LIMIT ?`,
+    )
+    .bind(cursorIssueId, maxArticles)
+    .all<{
+      issue_id: number;
+      issue_number: number;
+      reactions_json: string;
+      reactions_etag: string | null;
+    }>();
+
+  const rows = articles.results;
+  if (rows.length === 0) return { targets: [], next: null };
+
+  const placeholders = rows.map(() => "?").join(", ");
+  const comments = await db
+    .prepare(
+      `SELECT github_id, article_id, reactions_json, reactions_etag
+       FROM comments
+       WHERE article_id IN (${placeholders}) AND deleted_at IS NULL
+       ORDER BY article_id, github_id
+       LIMIT ?`,
+    )
+    .bind(...rows.map((row) => row.issue_id), maxItems + 1)
+    .all<{
+      github_id: number;
+      article_id: number;
+      reactions_json: string;
+      reactions_etag: string | null;
+    }>();
+
+  const commentsByArticle = new Map<number, typeof comments.results>();
+  for (const comment of comments.results) {
+    const bucket = commentsByArticle.get(comment.article_id);
+    if (bucket) bucket.push(comment);
+    else commentsByArticle.set(comment.article_id, [comment]);
+  }
+
+  const ordered: ReactionTarget[] = [];
+  for (const row of rows) {
+    if (row.issue_id > cursorIssueId || cursorCommentId === 0) {
+      ordered.push({
+        kind: "issue",
+        issueId: row.issue_id,
+        issueNumber: row.issue_number,
+        targetId: row.issue_number,
+        reactionsJson: row.reactions_json,
+        etag: row.reactions_etag,
+      });
+    }
+    for (const comment of commentsByArticle.get(row.issue_id) ?? []) {
+      if (row.issue_id === cursorIssueId && comment.github_id < cursorCommentId) continue;
+      ordered.push({
+        kind: "comment",
+        issueId: row.issue_id,
+        issueNumber: row.issue_number,
+        targetId: comment.github_id,
+        reactionsJson: comment.reactions_json,
+        etag: comment.reactions_etag,
+      });
+    }
+  }
+
+  const targets = ordered.slice(0, maxItems);
+  const overflow = ordered[maxItems];
+  if (overflow) {
+    return {
+      targets,
+      next: {
+        issueId: overflow.issueId,
+        commentId: overflow.kind === "issue" ? 0 : overflow.targetId,
+      },
+    };
+  }
+  if (rows.length < maxArticles) return { targets, next: null };
+  const lastArticle = rows[rows.length - 1];
+  return {
+    targets,
+    next: lastArticle ? { issueId: lastArticle.issue_id + 1, commentId: 0 } : null,
+  };
+}
+
+export interface ReactionSummaryUpdate {
+  kind: "issue" | "comment";
+  issueId: number;
+  /** Issue id for issue targets, comment id for comment targets. */
+  rowId: number;
+  /** Normalized summary JSON, or `null` when only the ETag changed. */
+  reactionsJson: string | null;
+  etag: string | null;
+}
+
+/**
+ * Shared summary writer for reconciled reactions.
+ *
+ * Only articles with a changed summary get a new public revision, so an
+ * ETag-only refresh never rotates a reader cache entry.
+ */
+export async function applyReactionSummaries(
+  db: D1Database,
+  updates: ReactionSummaryUpdate[],
+): Promise<ArticleMutation[]> {
+  if (updates.length === 0) return [];
+  const changedIssueIds = [
+    ...new Set(updates.filter((u) => u.reactionsJson !== null).map((u) => u.issueId)),
+  ];
+  let articles: Array<{
+    issue_id: number;
+    issue_number: number;
+    slug: string;
+    public_revision: number;
+  }> = [];
+  if (changedIssueIds.length > 0) {
+    const placeholders = changedIssueIds.map(() => "?").join(", ");
+    const result = await db
+      .prepare(
+        `SELECT issue_id, issue_number, slug, public_revision
+         FROM articles
+         WHERE issue_id IN (${placeholders}) AND visibility = 'published'`,
+      )
+      .bind(...changedIssueIds)
+      .all<{ issue_id: number; issue_number: number; slug: string; public_revision: number }>();
+    articles = result.results;
+  }
+  const publishedIds = new Set(articles.map((article) => article.issue_id));
+
+  const timestamp = nowIso();
+  const statements: D1PreparedStatement[] = [];
+  for (const update of updates) {
+    if (update.reactionsJson !== null && !publishedIds.has(update.issueId)) continue;
+    if (update.kind === "issue") {
+      statements.push(
+        update.reactionsJson === null
+          ? db
+              .prepare("UPDATE articles SET reactions_etag = ? WHERE issue_id = ?")
+              .bind(update.etag, update.rowId)
+          : db
+              .prepare(
+                "UPDATE articles SET reactions_json = ?, reactions_etag = ? WHERE issue_id = ?",
+              )
+              .bind(update.reactionsJson, update.etag, update.rowId),
+      );
+    } else {
+      statements.push(
+        update.reactionsJson === null
+          ? db
+              .prepare("UPDATE comments SET reactions_etag = ? WHERE github_id = ?")
+              .bind(update.etag, update.rowId)
+          : db
+              .prepare(
+                "UPDATE comments SET reactions_json = ?, reactions_etag = ? WHERE github_id = ?",
+              )
+              .bind(update.reactionsJson, update.etag, update.rowId),
+      );
+    }
+  }
+
+  const mutations: ArticleMutation[] = [];
+  for (const article of articles) {
+    const revision = article.public_revision + 1;
+    statements.push(
+      db
+        .prepare("UPDATE articles SET last_public_at = ?, public_revision = ? WHERE issue_id = ?")
+        .bind(timestamp, revision, article.issue_id),
+    );
+    mutations.push({
+      issueNumber: article.issue_number,
+      previousSlug: article.slug,
+      slug: article.slug,
+      previousRevision: article.public_revision,
+      revision,
+    });
+  }
+
+  if (statements.length > 0) await db.batch(statements);
+  return mutations;
 }

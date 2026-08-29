@@ -1,8 +1,19 @@
+import {
+  createExecutionContext,
+  createScheduledController,
+  waitOnExecutionContext,
+} from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import worker from "../src/index";
+import { articleCacheKey } from "../src/lib/cache";
 import { encodeReaderCursor } from "../src/lib/github-reader";
+import { REACTION_SYNC_KEY, runReactionSync } from "../src/scheduled/reactions";
 
 let renderProbeAvailable = false;
+const reactionResponses = new Map<string, (ifNoneMatch: string | null) => Response>();
+const reactionRequests: Array<{ path: string; ifNoneMatch: string | null; auth: string | null }> =
+  [];
 const readerRequests: Array<{
   url: string;
   headers: Headers;
@@ -166,6 +177,16 @@ beforeAll(() => {
         );
       }
       const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : {}));
+      if (url.pathname.startsWith("/repos/sarthakagrawal927/issue-pages/")) {
+        reactionRequests.push({
+          path: url.pathname,
+          ifNoneMatch: headers.get("if-none-match"),
+          auth: headers.get("authorization"),
+        });
+        const responder = reactionResponses.get(url.pathname);
+        if (responder) return responder(headers.get("if-none-match"));
+        return Response.json({ message: "Not Found" }, { status: 404 });
+      }
       readerRequests.push({
         url: url.toString(),
         headers,
@@ -833,5 +854,237 @@ describe("public Worker routes", () => {
       }),
     );
     expect(response.status).toBe(401);
+  });
+});
+
+describe("scheduled reaction reconciliation", () => {
+  const issuePath = "/repos/sarthakagrawal927/issue-pages/issues/5000";
+  const commentPath = "/repos/sarthakagrawal927/issue-pages/issues/comments/5001";
+
+  function syncEnv(): typeof env {
+    return { ...env, GITHUB_RENDER_TOKEN: "test-render-token" };
+  }
+
+  function articleRow(): Promise<{ reactions_json: string; public_revision: number } | null> {
+    return env.DB.prepare(
+      "SELECT reactions_json, public_revision FROM articles WHERE issue_id = 5000",
+    ).first<{ reactions_json: string; public_revision: number }>();
+  }
+
+  function cursorRow(): Promise<{
+    cursor_issue_id: number;
+    cursor_comment_id: number;
+    last_status: string;
+  } | null> {
+    return env.DB.prepare(
+      "SELECT cursor_issue_id, cursor_comment_id, last_status FROM sync_state WHERE key = ?",
+    )
+      .bind(REACTION_SYNC_KEY)
+      .first<{ cursor_issue_id: number; cursor_comment_id: number; last_status: string }>();
+  }
+
+  async function resetFixture(articleJson: string, commentJson: string): Promise<void> {
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE articles SET reactions_json = ?, reactions_etag = NULL, public_revision = 1,
+         last_public_at = '2026-08-25T10:00:00.000Z' WHERE issue_id = 5000`,
+      ).bind(articleJson),
+      env.DB.prepare(
+        "UPDATE comments SET reactions_json = ?, reactions_etag = NULL WHERE github_id = 5001",
+      ).bind(commentJson),
+      env.DB.prepare("DELETE FROM sync_state WHERE key = ?").bind(REACTION_SYNC_KEY),
+      env.DB.prepare(
+        `INSERT INTO sync_state (key, cursor_issue_id, cursor_comment_id)
+         VALUES (?, 5000, 0)`,
+      ).bind(REACTION_SYNC_KEY),
+    ]);
+    reactionResponses.clear();
+    reactionRequests.length = 0;
+  }
+
+  beforeAll(async () => {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO articles
+         (issue_id, issue_number, repository_id, author_id, title, slug, body_markdown,
+          body_html, body_text, excerpt, github_url, github_created_at, github_updated_at,
+          state, visibility, reactions_json, published_at, last_public_at, public_revision)
+         VALUES (5000, 5000, 1345783913, 1, 'A reconciled page', 'a-reconciled-page',
+         'Reactions.', '<p>Reactions.</p>', 'Reactions.', 'Reactions.',
+         'https://github.com/sarthakagrawal927/issue-pages/issues/5000',
+         '2026-08-21T10:00:00.000Z', '2026-08-25T10:00:00.000Z', 'open', 'published',
+         '{}', '2026-08-21T10:00:00.000Z', '2026-08-25T10:00:00.000Z', 1)`,
+      ),
+      env.DB.prepare(
+        `INSERT INTO comments
+         (github_id, article_id, author_id, body_markdown, body_html, body_text, github_url,
+          github_created_at, github_updated_at, reactions_json, public_revision, deleted_at)
+         VALUES (5001, 5000, 1, 'A reply.', '<p>A reply.</p>', 'A reply.',
+         'https://github.com/sarthakagrawal927/issue-pages/issues/5000#issuecomment-5001',
+         '2026-08-22T10:00:00.000Z', '2026-08-22T10:00:00.000Z', '{}', 1, NULL)`,
+      ),
+    ]);
+  });
+
+  it("projects a standalone reaction addition and rotates the article cache", async () => {
+    await resetFixture("{}", "{}");
+    reactionResponses.set(issuePath, () =>
+      Response.json(
+        { number: 5000, reactions: { rocket: 1, total_count: 1 } },
+        { headers: { etag: '"issue-add"' } },
+      ),
+    );
+    reactionResponses.set(commentPath, () => Response.json({ id: 5001, reactions: {} }));
+    await caches.default.put(
+      articleCacheKey(env.PUBLIC_ORIGIN, 5000, 1),
+      new Response("cached article", { headers: { "Cache-Control": "public, s-maxage=600" } }),
+    );
+
+    expect(await caches.default.match(articleCacheKey(env.PUBLIC_ORIGIN, 5000, 1))).toBeDefined();
+
+    const result = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 4 } });
+
+    expect(result).toMatchObject({ status: "completed", scanned: 2, changed: 1 });
+    expect(await articleRow()).toMatchObject({
+      reactions_json: '{"rocket":1}',
+      public_revision: 2,
+    });
+    expect(await caches.default.match(articleCacheKey(env.PUBLIC_ORIGIN, 5000, 1))).toBeUndefined();
+    expect(reactionRequests[0]).toMatchObject({
+      path: issuePath,
+      auth: "Bearer test-render-token",
+    });
+  });
+
+  it("projects a reaction removal", async () => {
+    await resetFixture('{"rocket":1}', '{"+1":2}');
+    reactionResponses.set(issuePath, () => Response.json({ number: 5000, reactions: {} }));
+    reactionResponses.set(commentPath, () =>
+      Response.json({ id: 5001, reactions: { "+1": 1, total_count: 1 } }),
+    );
+
+    const result = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 4 } });
+
+    expect(result).toMatchObject({ status: "completed", changed: 1 });
+    expect(await articleRow()).toMatchObject({ reactions_json: "{}", public_revision: 2 });
+    await expect(
+      env.DB.prepare("SELECT reactions_json FROM comments WHERE github_id = 5001").first(),
+    ).resolves.toMatchObject({ reactions_json: '{"+1":1}' });
+  });
+
+  it("leaves the public revision untouched on an unchanged run and then revalidates with an ETag", async () => {
+    await resetFixture('{"heart":3}', "{}");
+    reactionResponses.set(issuePath, (ifNoneMatch) =>
+      ifNoneMatch === '"issue-noop"'
+        ? new Response(null, { status: 304 })
+        : Response.json(
+            { number: 5000, reactions: { heart: 3, total_count: 3 } },
+            { headers: { etag: '"issue-noop"' } },
+          ),
+    );
+    reactionResponses.set(commentPath, () => Response.json({ id: 5001, reactions: {} }));
+
+    const first = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 4 } });
+    expect(first).toMatchObject({ status: "completed", changed: 0 });
+    expect(await articleRow()).toMatchObject({
+      reactions_json: '{"heart":3}',
+      public_revision: 1,
+    });
+
+    await env.DB.prepare(
+      "UPDATE sync_state SET cursor_issue_id = 5000, cursor_comment_id = 0 WHERE key = ?",
+    )
+      .bind(REACTION_SYNC_KEY)
+      .run();
+    reactionRequests.length = 0;
+
+    const second = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 4 } });
+    expect(second).toMatchObject({ status: "completed", changed: 0 });
+    expect(reactionRequests[0]?.ifNoneMatch).toBe('"issue-noop"');
+    expect(await articleRow()).toMatchObject({ public_revision: 1 });
+  });
+
+  it("respects the per-run item bound and resumes from the durable cursor", async () => {
+    await resetFixture("{}", "{}");
+    reactionResponses.set(issuePath, () => Response.json({ number: 5000, reactions: {} }));
+    reactionResponses.set(commentPath, () =>
+      Response.json({ id: 5001, reactions: { eyes: 1, total_count: 1 } }),
+    );
+
+    const first = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 1 } });
+    expect(first).toMatchObject({ status: "completed", scanned: 1, requests: 1 });
+    expect(reactionRequests.map((entry) => entry.path)).toEqual([issuePath]);
+    expect(await cursorRow()).toMatchObject({ cursor_issue_id: 5000, cursor_comment_id: 5001 });
+    await expect(
+      env.DB.prepare("SELECT reactions_json FROM comments WHERE github_id = 5001").first(),
+    ).resolves.toMatchObject({ reactions_json: "{}" });
+
+    reactionRequests.length = 0;
+    const second = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 1 } });
+    expect(second).toMatchObject({ status: "completed", scanned: 1, changed: 1 });
+    expect(reactionRequests.map((entry) => entry.path)).toEqual([commentPath]);
+    await expect(
+      env.DB.prepare("SELECT reactions_json FROM comments WHERE github_id = 5001").first(),
+    ).resolves.toMatchObject({ reactions_json: '{"eyes":1}' });
+    expect(await cursorRow()).toMatchObject({ cursor_issue_id: 5001, cursor_comment_id: 0 });
+  });
+
+  it("skips without GITHUB_RENDER_TOKEN and writes nothing to D1", async () => {
+    await resetFixture('{"heart":5}', "{}");
+    await env.DB.prepare("DELETE FROM sync_state WHERE key = ?").bind(REACTION_SYNC_KEY).run();
+
+    const result = await runReactionSync(env, { limits: { maxArticles: 1, maxItems: 4 } });
+
+    expect(result).toMatchObject({ status: "skipped", reason: "missing_render_token" });
+    expect(reactionRequests).toHaveLength(0);
+    expect(await cursorRow()).toBeNull();
+    expect(await articleRow()).toMatchObject({
+      reactions_json: '{"heart":5}',
+      public_revision: 1,
+    });
+  });
+
+  it("exposes the scheduled handler next to fetch on the default export", async () => {
+    expect(typeof worker.fetch).toBe("function");
+    expect(typeof worker.scheduled).toBe("function");
+    await env.DB.prepare("DELETE FROM sync_state WHERE key = ?").bind(REACTION_SYNC_KEY).run();
+    reactionRequests.length = 0;
+
+    const ctx = createExecutionContext();
+    await worker.scheduled(createScheduledController(), env, ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(reactionRequests).toHaveLength(0);
+    expect(await cursorRow()).toBeNull();
+    const response = await exports.default.fetch(new Request("http://localhost:8787/"));
+    expect(response.status).toBe(200);
+  });
+
+  it("keeps known-good counts and a retryable cursor when GitHub fails", async () => {
+    for (const failure of [
+      () =>
+        Response.json(
+          { message: "API rate limit exceeded" },
+          { status: 403, headers: { "x-ratelimit-remaining": "0" } },
+        ),
+      () => Response.json({ message: "Too many requests" }, { status: 429 }),
+    ]) {
+      await resetFixture('{"heart":7}', "{}");
+      reactionResponses.set(issuePath, failure);
+      reactionResponses.set(commentPath, () => Response.json({ id: 5001, reactions: {} }));
+
+      const result = await runReactionSync(syncEnv(), { limits: { maxArticles: 1, maxItems: 4 } });
+
+      expect(result).toMatchObject({ status: "failed", reason: "rate_limited", changed: 0 });
+      expect(await articleRow()).toMatchObject({
+        reactions_json: '{"heart":7}',
+        public_revision: 1,
+      });
+      expect(await cursorRow()).toMatchObject({
+        cursor_issue_id: 5000,
+        cursor_comment_id: 0,
+        last_status: "failed",
+      });
+    }
   });
 });

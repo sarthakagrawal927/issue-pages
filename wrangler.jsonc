@@ -35,6 +35,9 @@
       "simple": { "limit": 120, "period": 60 }
     }
   ],
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
@@ -64,6 +67,9 @@
           "migrations_dir": "migrations"
         }
       ],
+      "triggers": {
+        "crons": ["*/15 * * * *"]
+      },
       "ratelimits": [
         {
           "name": "SEARCH_RATE_LIMIT",

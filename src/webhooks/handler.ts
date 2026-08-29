@@ -2,7 +2,6 @@ import type { Context } from "hono";
 import {
   applyCommentProjection,
   applyIssueProjection,
-  applyReactionProjection,
   claimDelivery,
   completeDelivery,
   deleteCommentProjection,
@@ -25,7 +24,6 @@ import type {
   CommentWebhookPayload,
   GitHubIssue,
   IssueWebhookPayload,
-  ReactionWebhookPayload,
   RenderedContent,
 } from "../types";
 
@@ -307,18 +305,6 @@ export async function handleGitHubWebhook(c: AppContext): Promise<Response> {
       await handleIssueEvent(c, payload as IssueWebhookPayload);
     } else if (eventName === "issue_comment") {
       await handleCommentEvent(c, payload as CommentWebhookPayload);
-    } else if (eventName === "reaction") {
-      const reactionPayload = payload as ReactionWebhookPayload;
-      scheduleInvalidation(
-        c,
-        await applyReactionProjection(
-          c.env.DB,
-          reactionPayload.action,
-          reactionPayload.reaction,
-          reactionPayload.issue,
-          reactionPayload.comment,
-        ),
-      );
     } else if (eventName === "ping") {
       // Repository identity and signature have already been verified.
     } else {

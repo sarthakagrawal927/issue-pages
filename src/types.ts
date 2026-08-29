@@ -25,16 +25,6 @@ export interface GitHubLabel {
   description: string | null;
 }
 
-export type ReactionContent =
-  | "+1"
-  | "-1"
-  | "laugh"
-  | "hooray"
-  | "confused"
-  | "heart"
-  | "rocket"
-  | "eyes";
-
 export interface GitHubReactionSummary {
   "+1"?: number;
   "-1"?: number;
@@ -72,13 +62,6 @@ export interface GitHubComment {
   reactions?: GitHubReactionSummary;
 }
 
-export interface GitHubReaction {
-  id: number;
-  content: ReactionContent;
-  created_at: string;
-  user: GitHubUser;
-}
-
 export interface GitHubRepository {
   id: number;
   full_name: string;
@@ -94,14 +77,6 @@ export interface CommentWebhookPayload {
   action: string;
   issue: GitHubIssue;
   comment: GitHubComment;
-  repository: GitHubRepository;
-}
-
-export interface ReactionWebhookPayload {
-  action: "created" | "deleted";
-  reaction: GitHubReaction;
-  issue?: GitHubIssue;
-  comment?: GitHubComment;
   repository: GitHubRepository;
 }
 
