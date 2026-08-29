@@ -16,7 +16,14 @@ export interface NormalizedGitHubHtml {
 }
 
 interface NormalizeOptions {
+  /** Absolute URL of the issue or comment, used for "view on GitHub" fallback links. */
   sourceUrl: string;
+  /**
+   * Base URL that relative hrefs, image sources, and srcset candidates resolve against.
+   * GitHub resolves relative links in issue bodies against the repository blob root,
+   * not against the issue URL.
+   */
+  baseUrl: string;
 }
 
 const MATH_TAGS = [
@@ -403,14 +410,14 @@ function transformElement(
   );
   if (node.tagName === "h1") node.tagName = "h2";
   if (node.tagName === "a") {
-    const href = normalizeUrl(node.properties.href, options.sourceUrl);
+    const href = normalizeUrl(node.properties.href, options.baseUrl);
     if (href) node.properties.href = href;
     else delete node.properties.href;
     node.properties.rel = ["nofollow", "noopener", "noreferrer", "ugc"];
     delete node.properties.target;
   }
   if (node.tagName === "img") {
-    const src = normalizeUrl(node.properties.src, options.sourceUrl, true);
+    const src = normalizeUrl(node.properties.src, options.baseUrl, true);
     if (src) node.properties.src = src;
     else delete node.properties.src;
     node.properties.loading = "lazy";
@@ -418,7 +425,7 @@ function transformElement(
     delete node.properties.style;
   }
   if (node.tagName === "source") {
-    const srcSet = normalizeSrcSet(node.properties.srcSet, options.sourceUrl);
+    const srcSet = normalizeSrcSet(node.properties.srcSet, options.baseUrl);
     if (srcSet) node.properties.srcSet = srcSet;
     else delete node.properties.srcSet;
   }
@@ -458,6 +465,14 @@ function prefixIdentifiers(root: Root): void {
     for (const child of node.children) rewrite(child);
   };
   for (const child of root.children) rewrite(child);
+}
+
+/**
+ * Base URL relative links in an issue body resolve against on GitHub: the repository
+ * blob root, e.g. `https://github.com/owner/repo/blob/HEAD/`.
+ */
+export function repositoryBaseUrl(repository: string): string {
+  return `https://github.com/${repository}/blob/HEAD/`;
 }
 
 export function normalizeGitHubHtml(

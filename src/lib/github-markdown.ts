@@ -1,5 +1,5 @@
 import type { RenderedContent } from "../types";
-import { normalizeGitHubHtml } from "./github-html";
+import { normalizeGitHubHtml, repositoryBaseUrl } from "./github-html";
 import { renderMarkdown } from "./markdown";
 import { readResponseTextWithLimit } from "./request";
 
@@ -68,6 +68,9 @@ export async function renderGitHubMarkdown(
     throw new Error("github_markdown_invalid_content_type");
   }
   const rawHtml = await readResponseTextWithLimit(response, MAX_RENDERED_HTML_BYTES);
-  const normalized = normalizeGitHubHtml(rawHtml, { sourceUrl: options.sourceUrl });
+  const normalized = normalizeGitHubHtml(rawHtml, {
+    sourceUrl: options.sourceUrl,
+    baseUrl: repositoryBaseUrl(options.repository),
+  });
   return { ...fallback, html: normalized.html };
 }

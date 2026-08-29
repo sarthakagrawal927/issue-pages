@@ -1,4 +1,4 @@
-import { normalizeGitHubHtml } from "./github-html";
+import { normalizeGitHubHtml, repositoryBaseUrl } from "./github-html";
 import { slugify } from "./slug";
 
 const GITHUB_API = "https://api.github.com";
@@ -257,11 +257,14 @@ function issueSummaryFrom(value: unknown): PublicIssueSummary | null {
   };
 }
 
-function issueFrom(value: unknown): PublicIssue | null {
+function issueFrom(value: unknown, repository: PublicRepository): PublicIssue | null {
   const summary = issueSummaryFrom(value);
   if (!summary || !isRecord(value)) return null;
   const rawHtml = typeof value.body_html === "string" ? value.body_html : "";
-  const normalized = normalizeGitHubHtml(rawHtml, { sourceUrl: summary.githubUrl });
+  const normalized = normalizeGitHubHtml(rawHtml, {
+    sourceUrl: summary.githubUrl,
+    baseUrl: repositoryBaseUrl(`${repository.owner}/${repository.repo}`),
+  });
   return {
     ...summary,
     bodyHtml: normalized.html,
@@ -276,7 +279,7 @@ function issueFrom(value: unknown): PublicIssue | null {
   };
 }
 
-function commentFrom(value: unknown): PublicComment | null {
+function commentFrom(value: unknown, repository: PublicRepository): PublicComment | null {
   if (!isRecord(value)) return null;
   if (
     typeof value.id !== "number" ||
@@ -287,7 +290,10 @@ function commentFrom(value: unknown): PublicComment | null {
   )
     return null;
   const rawHtml = typeof value.body_html === "string" ? value.body_html : "";
-  const normalized = normalizeGitHubHtml(rawHtml, { sourceUrl: value.html_url });
+  const normalized = normalizeGitHubHtml(rawHtml, {
+    sourceUrl: value.html_url,
+    baseUrl: repositoryBaseUrl(`${repository.owner}/${repository.repo}`),
+  });
   return {
     id: value.id,
     bodyHtml: normalized.html,
@@ -626,7 +632,7 @@ export async function getPublicIssue(options: {
     ctx: options.ctx,
     validate: isPublicIssue,
     transform(payload) {
-      const issue = issueFrom(payload);
+      const issue = issueFrom(payload, options.repository);
       if (!issue) throw new GitHubReaderError(404, "not_found");
       return issue;
     },
@@ -656,7 +662,7 @@ export async function getPublicIssueDiscussion(options: {
       if (!Array.isArray(payload)) throw new GitHubReaderError(503, "unavailable");
       return {
         comments: payload.flatMap((entry) => {
-          const comment = commentFrom(entry);
+          const comment = commentFrom(entry, options.repository);
           return comment ? [comment] : [];
         }),
         next: hasNextPage(response),
