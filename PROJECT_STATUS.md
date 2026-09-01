@@ -35,6 +35,12 @@ domains, multiple publishing repositories, and cross-repository discovery.
 
 ## Timeline
 
+- **2026-09-01 — Dedicated Clarity project wired locally:** Added IssuePages'
+  own project to the server-rendered public page shell while leaving embed-only
+  output unchanged. Type checks, 106 tests, the production dry-run build, and
+  the Fleet-wide source audit pass; production deployment is pending the normal
+  release gate.
+
 - 2026-08-26 — Added label and author filters, host-theme inheritance, bounded
   host-neutral styling, and repository-profile embeds for the three-surface
   dogfood release

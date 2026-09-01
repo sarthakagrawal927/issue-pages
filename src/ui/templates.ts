@@ -1,6 +1,5 @@
 import type { SearchRow } from "../data/repository";
 import type { EmbedOptions } from "../lib/embed";
-import { safeJson } from "../lib/html";
 import type {
   PublicComment,
   PublicIssueDiscussion,
@@ -9,6 +8,7 @@ import type {
   PublicIssueSummary,
   PublicRepository,
 } from "../lib/github-reader";
+import { safeJson } from "../lib/html";
 import type { ArticleListRow, ArticleRow, CommentRow, GitHubUser, ModerationMode } from "../types";
 
 export interface SiteIdentity {
@@ -192,6 +192,7 @@ export function layout(
   ${options.polling ? '<script src="/article-poll.js?v=20260825-5" defer></script>' : ""}
   ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260826-3"></script>' : ""}
   ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
+  <script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","ybch2c99wz");window.clarity("set","project_id","issue-pages");</script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -199,7 +200,7 @@ export function layout(
   <main id="main">${body}</main>
   ${footer(site)}
   <script src="https://sassmaker.com/project-strip.js" data-project="issue-pages" defer></script>
-  <script src="https://sassmaker.com/ai-chat-footer.js" data-name="IssuePages" data-compose="false" defer></script>
+  <script src="https://sassmaker.com/ai-chat-footer.js" data-name="IssuePages" defer></script>
 </body>
 </html>`;
 }
