@@ -3,6 +3,8 @@
 // and client errors to the Logs tab; window.appHealthLog() is available for
 // custom events. Built by client:build:log into public/app-health-log.js.
 
+export {};
+
 type Level = "debug" | "info" | "warn" | "error";
 type Scalar = string | number | boolean | null | undefined;
 interface Options {
@@ -65,7 +67,7 @@ document.addEventListener(
   "submit",
   (event) => {
     const form = event.target as HTMLFormElement | null;
-    if (!form || form.tagName !== "FORM") return;
+    if (form?.tagName !== "FORM") return;
     send("form.submitted", {
       title: form.id || form.getAttribute("name") || form.getAttribute("action") || "form",
       props: { page: location.pathname },
