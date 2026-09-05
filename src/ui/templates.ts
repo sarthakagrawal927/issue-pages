@@ -193,6 +193,7 @@ export function layout(
   ${options.readerClient ? '<script type="module" src="/assets/reader.js?v=20260826-3"></script>' : ""}
   ${options.mermaid ? '<script type="module" src="/assets/mermaid.js?v=20260825-2"></script>' : ""}
   <script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","ybch2c99wz");window.clarity("set","project_id","issue-pages");</script>
+  <script src="/app-health-log.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>

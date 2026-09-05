@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "client:build": "pnpm client:build:reader && pnpm client:build:embed && pnpm client:build:mermaid && pnpm client:check",
+    "client:build": "pnpm client:build:reader && pnpm client:build:embed && pnpm client:build:mermaid && pnpm client:build:log && pnpm client:check",
     "client:build:reader": "esbuild src/client/reader.ts --bundle --format=esm --minify --outfile=public/assets/reader.js",
     "client:build:embed": "esbuild src/client/embed-loader.ts --bundle --format=iife --minify --outfile=public/embed.js",
     "client:build:mermaid": "esbuild src/client/mermaid.ts --bundle --format=esm --splitting --minify --outdir=public/assets --entry-names=mermaid --chunk-names=chunks/[name]-[hash]",
@@ -26,7 +26,8 @@
     "build": "pnpm client:build && wrangler deploy --dry-run --env=\"\" --outdir dist",
     "startup": "wrangler check startup",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "deploy": "pnpm client:build && wrangler deploy --env production --tag $(git rev-parse HEAD)"
+    "deploy": "pnpm client:build && wrangler deploy --env production --tag $(git rev-parse HEAD)",
+    "client:build:log": "esbuild src/client/app-health-log.ts --bundle --format=iife --minify --outfile=public/app-health-log.js"
   },
   "dependencies": {
     "hast-util-from-html": "^2.0.3",
