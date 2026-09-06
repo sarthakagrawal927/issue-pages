@@ -20,6 +20,8 @@ import { checkContentSafety } from "../src/lib/safety";
 import { verifyGitHubSignature } from "../src/lib/signature";
 import { slugify } from "../src/lib/slug";
 import { detectSpam } from "../src/lib/spam";
+import { logWebhookOutcome } from "../src/lib/webhook-log";
+import type { AppBindings, GitHubIssue } from "../src/types";
 import { parityGitHubHtml, parityMarkdown } from "./fixtures/github-markdown";
 
 afterEach(() => {
@@ -332,5 +334,140 @@ describe("GitHub signature verification", () => {
     await expect(verifyGitHubSignature(body, `sha256=${"0".repeat(64)}`, secret)).resolves.toBe(
       false,
     );
+  });
+});
+
+describe("App Health webhook logs", () => {
+  function issue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
+    return {
+      id: 1,
+      number: 7,
+      title: "How I read a codebase",
+      body: "body",
+      html_url: "https://github.com/sarthakagrawal927/issue-pages/issues/7",
+      state: "open",
+      created_at: "2026-09-01T00:00:00Z",
+      updated_at: "2026-09-01T00:00:00Z",
+      user: { id: 2, login: "stranger", avatar_url: "", html_url: "" },
+      labels: [],
+      ...overrides,
+    };
+  }
+
+  const env = { GITHUB_OWNER: "sarthakagrawal927" } as AppBindings;
+  const keyed = { ...env, APP_HEALTH_INGEST_KEY: "ah_test", APP_HEALTH_ENVIRONMENT: "production" };
+
+  function captureLogs() {
+    const sent: Array<Record<string, unknown>> = [];
+    const outbound = vi.fn(async (_url: string, init: RequestInit) => {
+      sent.push(JSON.parse(String(init.body)).logs[0]);
+      return new Response("{}", { status: 202 });
+    });
+    vi.stubGlobal("fetch", outbound);
+    return { sent, outbound };
+  }
+
+  it("stays silent until an ingest key exists", async () => {
+    const { outbound } = captureLogs();
+    await logWebhookOutcome(env as AppBindings, "processed", {
+      eventName: "issues",
+      action: "opened",
+      issue: issue(),
+      authorLogin: "stranger",
+    });
+    expect(outbound).not.toHaveBeenCalled();
+  });
+
+  it("reports a stranger's new article at info", async () => {
+    const { sent } = captureLogs();
+    await logWebhookOutcome(keyed as AppBindings, "processed", {
+      eventName: "issues",
+      action: "opened",
+      issue: issue(),
+      authorLogin: "stranger",
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
+      event: "article.published",
+      level: "info",
+      title: "How I read a codebase",
+      props: { issue: 7, author: "stranger", stranger: true, action: "opened" },
+    });
+  });
+
+  it("marks the owner's own publish as not a stranger", async () => {
+    const { sent } = captureLogs();
+    await logWebhookOutcome(keyed as AppBindings, "processed", {
+      eventName: "issues",
+      action: "opened",
+      issue: issue(),
+      authorLogin: "sarthakagrawal927",
+    });
+    expect(sent[0]).toMatchObject({ props: { stranger: false } });
+  });
+
+  it("says nothing when a delivery only refreshed metadata", async () => {
+    const { outbound } = captureLogs();
+    for (const action of ["labeled", "unlabeled", "closed", "reopened"]) {
+      await logWebhookOutcome(keyed as AppBindings, "processed", {
+        eventName: "issues",
+        action,
+        issue: issue(),
+        authorLogin: "stranger",
+      });
+    }
+    expect(outbound).not.toHaveBeenCalled();
+  });
+
+  it("alerts on blocked content without replaying the author's text", async () => {
+    const { sent } = captureLogs();
+    await logWebhookOutcome(
+      keyed as AppBindings,
+      "pending",
+      {
+        eventName: "issues",
+        action: "opened",
+        issue: issue({ title: "BUY CHEAP FOLLOWERS http://spam.example" }),
+        authorLogin: "stranger",
+      },
+      "flagged",
+    );
+    expect(sent[0]).toMatchObject({
+      event: "article.blocked",
+      level: "warn",
+      title: "issue #7",
+      props: { reason: "flagged" },
+    });
+    expect(JSON.stringify(sent[0])).not.toContain("spam.example");
+  });
+
+  it("raises a failed delivery to error", async () => {
+    const { sent } = captureLogs();
+    await logWebhookOutcome(
+      keyed as AppBindings,
+      "failed",
+      { eventName: "issues", action: "edited", issue: issue(), authorLogin: "stranger" },
+      "github_markdown_failed",
+    );
+    expect(sent[0]).toMatchObject({
+      event: "webhook.failed",
+      level: "error",
+      props: { reason: "github_markdown_failed" },
+    });
+  });
+
+  it("never throws when ingest is unreachable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new Error("network down"))),
+    );
+    await expect(
+      logWebhookOutcome(keyed as AppBindings, "processed", {
+        eventName: "issues",
+        action: "opened",
+        issue: issue(),
+        authorLogin: "stranger",
+      }),
+    ).resolves.toBeUndefined();
   });
 });
