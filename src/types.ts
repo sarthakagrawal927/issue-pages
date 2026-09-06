@@ -7,6 +7,8 @@ export type AppBindings = Omit<Env, "DB" | "SEARCH_RATE_LIMIT" | "VERSION_RATE_L
   MODERATION_MODE?: ModerationMode;
   OPENAI_API_KEY?: string;
   ADMIN_REVIEW_SECRET: string;
+  /** App Health product ingest key. Unset means logging is a silent no-op. */
+  APP_HEALTH_INGEST_KEY?: string;
 };
 
 export type ModerationMode = "openai" | "owner-only";

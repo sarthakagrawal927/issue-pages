@@ -19,6 +19,7 @@ import { readBodyWithLimit } from "../lib/request";
 import { checkContentSafety } from "../lib/safety";
 import { slugify } from "../lib/slug";
 import { verifyGitHubSignature } from "../lib/signature";
+import { logWebhookOutcome, type WebhookLogContext, type WebhookOutcome } from "../lib/webhook-log";
 import type {
   AppBindings,
   CommentWebhookPayload,
@@ -270,6 +271,21 @@ async function handleCommentEvent(c: AppContext, payload: CommentWebhookPayload)
 
 class PendingContentError extends Error {}
 
+function logContext(payload: unknown, eventName: string, action: string | null): WebhookLogContext {
+  const record = isRecord(payload) ? payload : {};
+  const issue = isRecord(record.issue) ? (record.issue as unknown as GitHubIssue) : null;
+  const commentAuthor =
+    eventName === "issue_comment" && isRecord(record.comment) && isRecord(record.comment.user)
+      ? String(record.comment.user.login)
+      : null;
+  return {
+    eventName,
+    action,
+    issue,
+    authorLogin: commentAuthor ?? issue?.user?.login ?? null,
+  };
+}
+
 export async function handleGitHubWebhook(c: AppContext): Promise<Response> {
   let body: Uint8Array;
   try {
@@ -300,6 +316,12 @@ export async function handleGitHubWebhook(c: AppContext): Promise<Response> {
     return c.json({ ok: true, duplicate: true });
   }
 
+  const reportOutcome = (outcome: WebhookOutcome, reason?: string): void => {
+    c.executionCtx.waitUntil(
+      logWebhookOutcome(c.env, outcome, logContext(payload, eventName, action), reason),
+    );
+  };
+
   try {
     if (eventName === "issues") {
       await handleIssueEvent(c, payload as IssueWebhookPayload);
@@ -312,14 +334,17 @@ export async function handleGitHubWebhook(c: AppContext): Promise<Response> {
       return c.json({ ok: true, ignored: true });
     }
     await completeDelivery(c.env.DB, deliveryId, "processed");
+    reportOutcome("processed");
     return c.json({ ok: true });
   } catch (error) {
     if (error instanceof PendingContentError) {
       await completeDelivery(c.env.DB, deliveryId, "pending", error.message);
+      reportOutcome("pending", error.message);
       return c.json({ ok: true, pending: true }, 202);
     }
     const message = error instanceof Error ? error.message : "webhook_failed";
     await completeDelivery(c.env.DB, deliveryId, "failed", message);
+    reportOutcome("failed", message);
     console.error(
       JSON.stringify({ event: "webhook_failed", deliveryId, eventName, error: message }),
     );

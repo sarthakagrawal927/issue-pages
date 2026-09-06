@@ -205,6 +205,22 @@ For a new environment or recovery deployment:
    pnpm exec wrangler secret put GITHUB_RENDER_TOKEN --env production
    ```
 
+   The webhook reports every finished delivery to App Health application logs
+   (`article.published` at info, `article.updated` and `comment.published` at
+   debug, `article.blocked` at warn, `webhook.failed` at error). Logging is a
+   silent no-op until the product's ingest key is set, so the pilot runs fine
+   without it:
+
+   ```sh
+   pnpm exec wrangler secret put APP_HEALTH_INGEST_KEY --env production
+   ```
+
+   Logs carry the issue number, the author's public GitHub login, and whether
+   that author is someone other than the repository owner — which is the
+   question the pilot exists to answer. A blocked article's own title and body
+   are deliberately not forwarded; they stay in the pending-revision queue for
+   review.
+
 4. Apply migrations remotely only as part of an explicitly approved release:
 
    ```sh
