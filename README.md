@@ -284,3 +284,11 @@ Universal-reader routes are read-only and send both HTML and HTTP `noindex`,
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md), [PRODUCT.md](PRODUCT.md), and
 [DESIGN.md](DESIGN.md) for current scope and decisions.
+
+## Retained editorial work
+
+[The live edited field note (#4)](https://github.com/sarthakagrawal927/issue-pages/issues/4)
+remains owner editorial content from the publishing pilot. Portfolio cleanup
+does not finish its writing or close it as an engineering task. The source issue
+retains the draft and discussion; publication quality and any further edits
+remain an editorial decision.
